@@ -5,7 +5,7 @@ from src.BoundingBox import BoundingBox
 
 
 @dataclass
-class VideoAnnotations:
+class VideoAnnotation:
     video_id: str
     frame_count: int
     width: int

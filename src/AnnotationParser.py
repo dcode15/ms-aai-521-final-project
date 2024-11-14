@@ -1,10 +1,9 @@
 import logging
 import xml.etree.ElementTree as ET
 from collections import defaultdict
-from pathlib import Path
 
 from src.BoundingBox import BoundingBox
-from src.VideoAnnotation import VideoAnnotation
+from src.VideoAnnotation import HockeyClip
 
 
 class AnnotationParser:
@@ -13,16 +12,7 @@ class AnnotationParser:
         self.logger = logging.getLogger(__name__)
 
     @staticmethod
-    def parse_cvat_xml(xml_path: Path) -> VideoAnnotation:
-        """
-        Parse CVAT XML annotation file.
-
-        Args:
-            xml_path: Path to XML file
-
-        Returns:
-            VideoAnnotation object
-        """
+    def parse_cvat_xml(xml_path: str) -> HockeyClip:
         tree = ET.parse(xml_path)
         root = tree.getroot()
 
@@ -65,4 +55,4 @@ class AnnotationParser:
                 tracks[track_id].append(bbox)
 
         frame_count = max(frame_indices) + 1
-        return VideoAnnotation(video_id, frame_count, width, height, tracks)
+        return HockeyClip(video_id, frame_count, width, height, tracks, [])

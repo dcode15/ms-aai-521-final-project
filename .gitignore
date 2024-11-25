@@ -4,5 +4,7 @@ data
 research
 venv
 out
+.tmp.driveupload
+.tmp.drivedownload
 
 src/yolo11n.pt

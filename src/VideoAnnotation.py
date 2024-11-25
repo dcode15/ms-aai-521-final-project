@@ -3,7 +3,7 @@ from typing import Dict, List
 
 import numpy as np
 
-from src.BoundingBox import BoundingBox
+from BoundingBox import BoundingBox
 
 
 @dataclass

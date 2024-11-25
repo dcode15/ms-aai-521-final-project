@@ -1,7 +1,10 @@
 # Paths
-CLIPS_DIR = "../data/clips"
-CVAT_DIR = "../data/CVAT_Style_labels"
-OUTPUT_DIR = "../out"
+# CLIPS_DIR = "../data/clips"
+# CVAT_DIR = "../data/CVAT_Style_labels"
+# OUTPUT_DIR = "../out"
+CLIPS_DIR = "/content/drive/Othercomputers/Doug Desktop/ms-aai-521-final-project/data/clips"
+CVAT_DIR = "/content/drive/Othercomputers/Doug Desktop/ms-aai-521-final-project/data/CVAT_Style_labels"
+OUTPUT_DIR = "/content/drive/Othercomputers/Doug Desktop/ms-aai-521-final-project/out"
 FRAMES_DIR = f"{OUTPUT_DIR}/frames"
 
 # Data Split

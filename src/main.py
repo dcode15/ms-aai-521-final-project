@@ -4,10 +4,10 @@ import argparse
 
 from tqdm import tqdm
 
-from src.Preprocessor import Preprocessor
-from src.YOLODetector import YOLODetector
-from src.YOLOTrainer import YOLOTrainer
-from src.config import (
+from Preprocessor import Preprocessor
+from YOLODetector import YOLODetector
+from YOLOTrainer import YOLOTrainer
+from config import (
     CLIPS_DIR,
     CVAT_DIR,
     OUTPUT_DIR,

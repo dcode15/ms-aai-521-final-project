@@ -4,7 +4,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 
-from src.BoundingBox import BoundingBox
+from BoundingBox import BoundingBox
 
 
 def draw_detections(

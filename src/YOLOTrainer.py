@@ -9,7 +9,7 @@ import yaml
 from tqdm import tqdm
 from ultralytics import YOLO
 
-from src.AnnotationParser import AnnotationParser
+from AnnotationParser import AnnotationParser
 
 
 class YOLOTrainer:

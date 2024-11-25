@@ -2,8 +2,8 @@ import logging
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
-from src.BoundingBox import BoundingBox
-from src.VideoAnnotation import HockeyClip
+from BoundingBox import BoundingBox
+from VideoAnnotation import HockeyClip
 
 
 class AnnotationParser:

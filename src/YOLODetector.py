@@ -5,7 +5,7 @@ import torch
 from tqdm import tqdm
 from ultralytics import YOLO
 
-from src.BoundingBox import BoundingBox
+from BoundingBox import BoundingBox
 
 
 class YOLODetector:

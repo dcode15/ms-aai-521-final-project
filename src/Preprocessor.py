@@ -6,8 +6,8 @@ from typing import Iterator, List
 import cv2
 import numpy as np
 
-from src.AnnotationParser import AnnotationParser
-from src.VideoAnnotation import HockeyClip
+from AnnotationParser import AnnotationParser
+from VideoAnnotation import HockeyClip
 
 
 class Preprocessor:

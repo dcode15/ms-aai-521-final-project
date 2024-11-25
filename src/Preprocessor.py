@@ -1,142 +1,128 @@
 import logging
-import os
-import pickle
 from glob import glob
 from pathlib import Path
-from typing import Optional
+from typing import Iterator, List
 
 import cv2
 import numpy as np
-from tqdm import tqdm
 
 from src.AnnotationParser import AnnotationParser
 from src.VideoAnnotation import HockeyClip
-from src.config import CLIPS_DIR, CVAT_DIR, OUTPUT_DIR
 
 
 class Preprocessor:
 
-    def __init__(self, cache_file: str = "processed_dataset.pkl"):
+    def __init__(self, clips_dir: str, cvat_dir: str):
         """
         Initialize the Preprocessor.
 
         Args:
-            cache_file: Name of the file to save/load processed data
+            clips_dir: Directory containing video clips
+            cvat_dir: Directory containing CVAT annotations
         """
         self.logger = logging.getLogger(__name__)
-        self.cache_path = Path(OUTPUT_DIR) / cache_file
+        self.clips_dir = Path(clips_dir)
+        self.cvat_dir = Path(cvat_dir)
 
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    def prepare_dataset(
-            self,
-            force_preprocess: bool = False
-    ) -> list[HockeyClip]:
+    def get_clips(self) -> Iterator[HockeyClip]:
         """
-        Prepare the dataset by either loading from cache or processing from scratch.
+        Get an iterator over all clips without loading frames into memory.
 
-        Args:
-            force_preprocess: If True, reprocess the data even if cache exists
-
-        Returns:
-            List of processed HockeyClip objects
-        """
-        if not force_preprocess:
-            clips = self._load_from_cache()
-            if clips is not None:
-                self.logger.info("Successfully loaded dataset from cache")
-                return clips
-
-        self.logger.info("Processing dataset from scratch...")
-        clips = self._process_dataset()
-
-        self._save_to_cache(clips)
-        return clips
-
-    def _process_dataset(self) -> list[HockeyClip]:
-        """
-        Process the dataset from raw files.
-
-        Returns:
-            List of processed HockeyClip objects
+        Yields:
+            HockeyClip objects with metadata but no frames loaded
         """
         annotation_parser = AnnotationParser()
-        clips: list[HockeyClip] = []
 
-        self.logger.info("Parsing annotations and loading video frames...")
-        for xml_path in tqdm(glob(f"{CVAT_DIR}/**/*.xml", recursive=True), desc="Loading clips"):
+        for xml_path in glob(f"{self.cvat_dir}/**/*.xml", recursive=True):
             annotation = annotation_parser.parse_cvat_xml(xml_path)
 
-            video_path = Path(CLIPS_DIR) / f"{annotation.video_id}.mp4"
+            video_path = self.clips_dir / f"{annotation.video_id}.mp4"
             if not video_path.exists():
                 self.logger.warning(f"Video file not found: {video_path}")
                 continue
 
-            frames = self._load_video_frames(str(video_path))
-            if not frames:
-                self.logger.warning(f"No frames loaded for video: {video_path}")
-                continue
+            yield annotation
 
-            annotation.frames = frames
-            clips.append(annotation)
-            break
-
-        return clips
-
-    def _load_video_frames(self, video_path: str) -> list[np.ndarray]:
+    def frame_iterator(self, clip: HockeyClip) -> Iterator[tuple[int, np.ndarray]]:
         """
-        Load frames from a video file.
+        Get an iterator over frames in a clip.
 
         Args:
-            video_path: Path to the video file
+            clip: HockeyClip object to get frames from
 
-        Returns:
-            List of video frames as numpy arrays (RGB format)
+        Yields:
+            Tuples of (frame_index, frame_data)
         """
-        cap = cv2.VideoCapture(video_path)
-        frames = []
+        video_path = self.clips_dir / f"{clip.video_id}.mp4"
+        cap = cv2.VideoCapture(str(video_path))
 
         try:
+            frame_idx = 0
             while cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
                     break
+
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frames.append(frame)
+                yield frame_idx, frame
+                frame_idx += 1
+
         finally:
             cap.release()
 
-        return frames
-
-    def _save_to_cache(self, clips: list[HockeyClip]) -> None:
+    def process_clip_frames(
+            self,
+            clip: HockeyClip,
+            frame_processor: callable,
+            batch_size: int = 32
+    ) -> Iterator[List]:
         """
-        Save processed data to cache file using pickle.
+        Process frames in batches using a provided function.
 
         Args:
-            clips: List of HockeyClip objects to save
+            clip: HockeyClip object to process
+            frame_processor: Function that takes a list of frames and returns processed results
+            batch_size: Number of frames to process at once
+
+        Yields:
+            Processed results for each batch of frames
         """
+        current_batch = []
+        current_indices = []
+
+        for frame_idx, frame in self.frame_iterator(clip):
+            current_batch.append(frame)
+            current_indices.append(frame_idx)
+
+            if len(current_batch) >= batch_size:
+                results = frame_processor(current_batch)
+                yield current_indices, results
+                current_batch = []
+                current_indices = []
+
+        if current_batch:
+            results = frame_processor(current_batch)
+            yield current_indices, results
+
+    def get_frame_count(self, clip: HockeyClip) -> int:
+        video_path = self.clips_dir / f"{clip.video_id}.mp4"
+        cap = cv2.VideoCapture(str(video_path))
         try:
-            with open(self.cache_path, 'wb') as f:
-                pickle.dump(clips, f)
-            self.logger.info(f"Successfully saved processed dataset to {self.cache_path}")
-        except Exception as e:
-            self.logger.error(f"Failed to save dataset to cache: {str(e)}")
+            return int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        finally:
+            cap.release()
 
-    def _load_from_cache(self) -> Optional[list[HockeyClip]]:
-        """
-        Try to load processed data from cache file using pickle.
-
-        Returns:
-            List of HockeyClip objects if successful, None otherwise
-        """
-        if not self.cache_path.exists():
-            self.logger.info("No cache file found")
-            return None
-
+    def get_clip_metadata(self, clip: HockeyClip) -> dict:
+        """Get video metadata without loading frames."""
+        video_path = self.clips_dir / f"{clip.video_id}.mp4"
+        cap = cv2.VideoCapture(str(video_path))
         try:
-            with open(self.cache_path, 'rb') as f:
-                clips = pickle.load(f)
-            return clips
-        except Exception as e:
-            self.logger.error(f"Failed to load dataset from cache: {str(e)}")
-            return None
+            metadata = {
+                'frame_count': int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
+                'fps': int(cap.get(cv2.CAP_PROP_FPS)),
+                'width': int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                'height': int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            }
+            return metadata
+        finally:
+            cap.release()

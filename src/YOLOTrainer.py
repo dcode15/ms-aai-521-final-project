@@ -40,7 +40,6 @@ class YOLOTrainer:
         self.labels_dir = (self.dataset_dir / 'labels').resolve()
 
     def _convert_box_to_yolo(self, box, img_width: int, img_height: int) -> tuple[float, float, float, float]:
-        """Convert box coordinates to YOLO format (normalized xcenter, ycenter, width, height)."""
         x_center = ((box.xtl + box.xbr) / 2) / img_width
         y_center = ((box.ytl + box.ybr) / 2) / img_height
         width = (box.xbr - box.xtl) / img_width
@@ -48,7 +47,6 @@ class YOLOTrainer:
         return x_center, y_center, width, height
 
     def is_dataset_prepared(self) -> bool:
-        """Check if dataset is already prepared."""
         if not self.dataset_dir.exists():
             return False
 
@@ -80,7 +78,6 @@ class YOLOTrainer:
             return False
 
     def prepare_data(self) -> None:
-        """Prepare training data in YOLO format."""
         if not self.force_data_preparation and self.is_dataset_prepared():
             self.logger.info("Dataset already prepared, skipping preparation")
             return
@@ -179,11 +176,10 @@ class YOLOTrainer:
 
     def train(
             self,
-            epochs: int = 100,
+            epochs: int = 10,
             batch_size: int = 16,
             learning_rate: float = 0.001
     ) -> None:
-        """Fine-tune the YOLO model."""
         self.prepare_data()
 
         self.model.train(
@@ -204,10 +200,8 @@ class YOLOTrainer:
         )
 
     def export_model(self, format: str = 'torchscript') -> None:
-        """Export the fine-tuned model."""
         self.model.export(format=format)
 
     def cleanup(self) -> None:
-        """Clean up temporary dataset files."""
         if self.dataset_dir.exists():
             shutil.rmtree(self.dataset_dir)

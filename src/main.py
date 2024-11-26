@@ -45,7 +45,7 @@ def main():
         finally:
             trainer.cleanup()
     else:
-        logger.info("Skipping training as requested")
+        logger.info("Skipping training due to --skip-training flag.")
 
     logger.info("Loading fine-tuned model for detection")
     detector = YOLODetector(

@@ -14,8 +14,10 @@ from config import (
     YOLO_MODEL,
     YOLO_CONFIDENCE_THRESHOLD,
     YOLO_BATCH_SIZE,
+    TRACK_BUFFER,
+    MATCH_THRESH,
 )
-from src.visualize import create_detection_video
+from visualize import create_detection_video
 
 
 def main():
@@ -49,8 +51,10 @@ def main():
 
     logger.info("Loading fine-tuned model for detection")
     detector = YOLODetector(
-        model_name=str(Path(OUTPUT_DIR) / 'finetune' / 'best.pt'),
-        conf_threshold=YOLO_CONFIDENCE_THRESHOLD
+        model_name=str(Path(OUTPUT_DIR) / 'finetune' / 'weights' / 'best.pt'),
+        conf_threshold=YOLO_CONFIDENCE_THRESHOLD,
+        track_buffer=TRACK_BUFFER,
+        match_thresh=MATCH_THRESH,
     )
 
     logger.info("Processing clips")
@@ -59,7 +63,7 @@ def main():
     for clip in preprocessor.get_clips():
         logger.info(f"Processing clip {clip.video_id}")
 
-        output_dir = Path(OUTPUT_DIR) / 'detections' / clip.video_id
+        output_dir = Path(OUTPUT_DIR) / 'detections'
         output_dir.mkdir(parents=True, exist_ok=True)
 
         metadata = preprocessor.get_clip_metadata(clip)
@@ -67,34 +71,35 @@ def main():
         fps = metadata['fps']
 
         frames = []
+        frame_indices = []
         detections = []
 
         with tqdm(total=frame_count, desc="Processing frames") as pbar:
-            for frame_indices, batch_frames in preprocessor.process_clip_frames(
+            for batch_indices, batch_frames in preprocessor.process_clip_frames(
                     clip,
                     lambda x: x,
                     batch_size=YOLO_BATCH_SIZE
             ):
+                frames.extend(batch_frames)
+                frame_indices.extend(batch_indices)
+
                 batch_detections = detector.detect_video(
                     batch_frames,
                     batch_size=YOLO_BATCH_SIZE
                 )
-
-                frames.extend(batch_frames)
                 detections.extend(batch_detections)
 
-                batch_output_path = output_dir / f'batch_{frame_indices[0]:06d}.mp4'
-                create_detection_video(
-                    frames=batch_frames,
-                    detections=batch_detections,
-                    output_path=str(batch_output_path),
-                    fps=fps
-                )
+                pbar.update(len(batch_indices))
 
-                pbar.update(len(frame_indices))
+        output_path = output_dir / f'{clip.video_id}_tracked.mp4'
+        logger.info(f"Creating visualization video: {output_path}")
 
-                frames = []
-                detections = []
+        create_detection_video(
+            frames=frames,
+            detections=detections,
+            output_path=str(output_path),
+            fps=fps
+        )
 
         logger.info(f"Finished processing clip {clip.video_id}")
 

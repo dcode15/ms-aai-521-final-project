@@ -176,7 +176,7 @@ class YOLOTrainer:
 
     def train(
             self,
-            epochs: int = 10,
+            epochs: int = 3,
             batch_size: int = 16,
             learning_rate: float = 0.001
     ) -> None:

@@ -20,6 +20,7 @@ from config import (
     TRAIN_PROPORTION,
     TEST_PROPORTION,
 )
+from evaluate_tracking import evaluate_tracking
 from visualize import create_detection_video
 
 
@@ -147,6 +148,14 @@ def main():
         )
 
         logger.info(f"Finished processing clip {clip.video_id}")
+
+    evaluate_tracking(
+        test_clips,
+        detector,
+        preprocessor,
+        Path(OUTPUT_DIR),
+        batch_size=YOLO_BATCH_SIZE
+    )
 
     logger.info("Done!")
 

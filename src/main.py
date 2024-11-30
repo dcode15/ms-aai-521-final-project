@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ModelEvaluator import ModelEvaluator
 from Preprocessor import Preprocessor
+from Visualizer import Visualizer
 from YOLODetector import YOLODetector
 from YOLOTrainer import YOLOTrainer
 from config import (
@@ -13,20 +14,24 @@ from config import (
     OUTPUT_DIR,
     YOLO_MODEL,
     YOLO_CONFIDENCE_THRESHOLD,
-    YOLO_BATCH_SIZE,
     TRACK_BUFFER,
     MATCH_THRESH,
+    TRAIN_EPOCHS,
+    TRAIN_BATCH_SIZE,
+    TRAIN_LEARNING_RATE,
+    EVAL_BATCH_SIZE,
+    VIZ_FPS,
+    VIZ_CODEC,
+    VIZ_BOX_THICKNESS
 )
 
 
 def main():
     parser = argparse.ArgumentParser(description='Train and run YOLO on hockey videos')
-    parser.add_argument('--force-prepare', action='store_true',
-                        help='Force dataset preparation')
+    parser.add_argument('--skip-preprocessing', action='store_true',
+                        help='Skip dataset preprocessing')
     parser.add_argument('--skip-training', action='store_true',
                         help='Skip training and use existing model')
-    parser.add_argument('--no-visualizations', action='store_true',
-                        help='Skip creating visualization videos')
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -45,7 +50,12 @@ def main():
             output_dir=OUTPUT_DIR
         )
 
-        trainer.train(force_prepare=args.force_prepare)
+        trainer.train(
+            epochs=TRAIN_EPOCHS,
+            batch_size=TRAIN_BATCH_SIZE,
+            learning_rate=TRAIN_LEARNING_RATE,
+            force_prepare=not args.skip_preprocessing
+        )
         trainer.export_model()
     else:
         logger.info("Skipping training due to --skip-training flag.")
@@ -63,13 +73,35 @@ def main():
         detector=detector,
         preprocessor=preprocessor,
         output_dir=Path(OUTPUT_DIR),
-        batch_size=YOLO_BATCH_SIZE
+        batch_size=EVAL_BATCH_SIZE
     )
 
-    evaluator.evaluate_clips(
-        clips=test_clips,
-        save_visualizations=not args.no_visualizations
-    )
+    predictions = evaluator.evaluate_clips(test_clips)
+
+    logger.info("Creating visualizations")
+    visualizer = Visualizer(default_thickness=VIZ_BOX_THICKNESS)
+    output_dir = Path(OUTPUT_DIR) / 'detections' / 'test'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for clip, (frames, pred_detections, gt_detections) in predictions.items():
+        pred_output_path = output_dir / f'{clip.video_id}_pred_only.mp4'
+        visualizer.create_detection_video(
+            frames=frames,
+            pred_detections=pred_detections,
+            output_path=str(pred_output_path),
+            fps=VIZ_FPS,
+            codec=VIZ_CODEC
+        )
+
+        combined_output_path = output_dir / f'{clip.video_id}_pred_and_gt.mp4'
+        visualizer.create_detection_video(
+            frames=frames,
+            pred_detections=pred_detections,
+            gt_detections=gt_detections,
+            output_path=str(combined_output_path),
+            fps=VIZ_FPS,
+            codec=VIZ_CODEC
+        )
 
     logger.info("Done!")
 

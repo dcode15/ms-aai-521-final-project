@@ -17,8 +17,6 @@ from config import (
     YOLO_BATCH_SIZE,
     TRACK_BUFFER,
     MATCH_THRESH,
-    TRAIN_PROPORTION,
-    TEST_PROPORTION,
 )
 from evaluate_tracking import evaluate_tracking
 from visualize import create_detection_video
@@ -37,7 +35,7 @@ def get_frame_detections(clip, frame_idx):
 def main():
     parser = argparse.ArgumentParser(description='Train and run YOLO on hockey videos')
     parser.add_argument('--force-prepare', action='store_true',
-                        help='Force dataset preparation even if already exists')
+                        help='Force dataset preparation')
     parser.add_argument('--skip-training', action='store_true',
                         help='Skip training and use existing model')
     args = parser.parse_args()
@@ -48,34 +46,18 @@ def main():
     random.seed(1)
 
     preprocessor = Preprocessor(CLIPS_DIR, CVAT_DIR)
-    all_clips = list(preprocessor.get_clips())
-    random.shuffle(all_clips)
-
-    n_clips = len(all_clips)
-    n_test = max(1, int(n_clips * TEST_PROPORTION))
-    n_train = max(1, int(n_clips * TRAIN_PROPORTION))
-
-    test_clips = all_clips[-n_test:]
-    train_clips = all_clips[:n_train]
-    val_clips = all_clips[n_train:-n_test]
-
-    logger.info(f"Dataset split: {len(train_clips)} train, {len(val_clips)} val, {len(test_clips)} test clips")
+    train_clips, val_clips, test_clips = preprocessor.split_dataset()
 
     if not args.skip_training:
         logger.info("Starting YOLO fine-tuning")
         trainer = YOLOTrainer(
             model_path=YOLO_MODEL,
-            clips_dir=CLIPS_DIR,
-            cvat_dir=CVAT_DIR,
-            output_dir=OUTPUT_DIR,
-            force_data_preparation=args.force_prepare
+            preprocessor=preprocessor,
+            output_dir=OUTPUT_DIR
         )
 
-        try:
-            trainer.train()
-            trainer.export_model()
-        finally:
-            trainer.cleanup()
+        trainer.train(force_prepare=args.force_prepare)
+        trainer.export_model()
     else:
         logger.info("Skipping training due to --skip-training flag.")
 

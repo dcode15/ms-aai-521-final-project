@@ -41,7 +41,7 @@ class Preprocessor:
             return False
         return True
 
-    def split_dataset(self, seed: int = 42) -> Tuple[List[HockeyClip], List[HockeyClip], List[HockeyClip]]:
+    def split_dataset(self, seed: int = 1) -> Tuple[List[HockeyClip], List[HockeyClip], List[HockeyClip]]:
         """Split the dataset into train, validation, and test sets."""
         all_clips = list(self.get_clips())
         train_clips, val_clips, test_clips = self._perform_dataset_split(all_clips, seed)

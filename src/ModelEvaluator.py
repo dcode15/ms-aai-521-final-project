@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List, Dict, Tuple
 
 import numpy as np
+from tqdm import tqdm
 
 from BoundingBox import BoundingBox
 from ObjectDetector import ObjectDetector
@@ -39,20 +40,20 @@ class ModelEvaluator:
     def evaluate_clips(
             self,
             clips: List[HockeyClip]
-    ) -> Dict[HockeyClip, Tuple[List[np.ndarray], List[List[BoundingBox]], List[List[BoundingBox]]]]:
+    ) -> Dict[str, Tuple[List[np.ndarray], List[List[BoundingBox]], List[List[BoundingBox]]]]:
         """
         Evaluate model performance on a list of clips.
 
         Returns:
-            Dict mapping clips to tuples of (frames, predictions, ground_truth)
+            Dict mapping clip video_ids to tuples of (frames, predictions, ground_truth)
         """
         self.logger.info("Starting model evaluation")
         results = {}
 
-        for clip in clips:
+        for clip in tqdm(clips):
             self.logger.info(f"Processing clip {clip.video_id}")
             processed_data = self._process_clip_frames(clip)
-            results[clip] = (
+            results[clip.video_id] = (
                 processed_data.frames,
                 processed_data.pred_detections,
                 processed_data.gt_detections

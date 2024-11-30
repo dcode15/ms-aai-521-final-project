@@ -3,6 +3,8 @@ import logging
 import random
 from pathlib import Path
 
+from tqdm import tqdm
+
 from ModelEvaluator import ModelEvaluator
 from ModelTrainer import ModelTrainer
 from ObjectDetector import ObjectDetector
@@ -83,7 +85,8 @@ def main():
     output_dir = Path(OUTPUT_DIR) / 'detections' / 'test'
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    for clip, (frames, pred_detections, gt_detections) in predictions.items():
+    for clip in tqdm(test_clips):
+        frames, pred_detections, gt_detections = predictions[clip.video_id]
         pred_output_path = output_dir / f'{clip.video_id}_pred_only.mp4'
         visualizer.create_detection_video(
             frames=frames,

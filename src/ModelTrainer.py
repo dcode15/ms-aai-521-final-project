@@ -8,7 +8,7 @@ from ultralytics import YOLO
 from Preprocessor import Preprocessor
 
 
-class YOLOTrainer:
+class ModelTrainer:
     """Class for fine-tuning YOLO models on hockey data."""
 
     def __init__(

@@ -4,10 +4,10 @@ import random
 from pathlib import Path
 
 from ModelEvaluator import ModelEvaluator
+from ModelTrainer import ModelTrainer
+from ObjectDetector import ObjectDetector
 from Preprocessor import Preprocessor
 from Visualizer import Visualizer
-from YOLODetector import YOLODetector
-from YOLOTrainer import YOLOTrainer
 from config import (
     CLIPS_DIR,
     CVAT_DIR,
@@ -44,7 +44,7 @@ def main():
 
     if not args.skip_training:
         logger.info("Starting YOLO fine-tuning")
-        trainer = YOLOTrainer(
+        trainer = ModelTrainer(
             model_path=YOLO_MODEL,
             preprocessor=preprocessor,
             output_dir=OUTPUT_DIR
@@ -61,7 +61,7 @@ def main():
         logger.info("Skipping training due to --skip-training flag.")
 
     logger.info("Loading fine-tuned model for detection")
-    detector = YOLODetector(
+    detector = ObjectDetector(
         model_name=str(Path(OUTPUT_DIR) / 'finetune' / 'weights' / 'best.pt'),
         conf_threshold=YOLO_CONFIDENCE_THRESHOLD,
         track_buffer=TRACK_BUFFER,

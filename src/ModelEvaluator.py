@@ -6,9 +6,9 @@ from typing import List, Dict, Tuple
 import numpy as np
 
 from BoundingBox import BoundingBox
+from ObjectDetector import ObjectDetector
 from Preprocessor import Preprocessor
 from VideoAnnotation import HockeyClip
-from YOLODetector import YOLODetector
 
 
 @dataclass
@@ -25,7 +25,7 @@ class ModelEvaluator:
 
     def __init__(
             self,
-            detector: YOLODetector,
+            detector: ObjectDetector,
             preprocessor: Preprocessor,
             output_dir: Path,
             batch_size: int = 16,

@@ -7,7 +7,7 @@ from ultralytics import YOLO
 from BoundingBox import BoundingBox
 
 
-class YOLODetector:
+class ObjectDetector:
     def __init__(
             self,
             model_name: str,

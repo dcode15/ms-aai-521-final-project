@@ -3,8 +3,7 @@ import logging
 import random
 from pathlib import Path
 
-from tqdm import tqdm
-
+from ModelEvaluator import ModelEvaluator
 from Preprocessor import Preprocessor
 from YOLODetector import YOLODetector
 from YOLOTrainer import YOLOTrainer
@@ -18,18 +17,6 @@ from config import (
     TRACK_BUFFER,
     MATCH_THRESH,
 )
-from evaluate_tracking import evaluate_tracking
-from visualize import create_detection_video
-
-
-def get_frame_detections(clip, frame_idx):
-    frame_boxes = []
-    for track in clip.tracks.values():
-        frame_boxes.extend([
-            box for box in track
-            if box.frame_idx == frame_idx and box.label in ['player', 'keeper']
-        ])
-    return frame_boxes
 
 
 def main():
@@ -38,6 +25,8 @@ def main():
                         help='Force dataset preparation')
     parser.add_argument('--skip-training', action='store_true',
                         help='Skip training and use existing model')
+    parser.add_argument('--no-visualizations', action='store_true',
+                        help='Skip creating visualization videos')
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -69,74 +58,17 @@ def main():
         match_thresh=MATCH_THRESH,
     )
 
-    logger.info("Processing test clips")
-    for clip in test_clips:
-        logger.info(f"Processing test clip {clip.video_id}")
-
-        output_dir = Path(OUTPUT_DIR) / 'detections' / 'test'
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        metadata = preprocessor.get_clip_metadata(clip)
-        frame_count = metadata['frame_count']
-        fps = metadata['fps']
-
-        frames = []
-        frame_indices = []
-        pred_detections = []
-        gt_detections = []
-
-        with tqdm(total=frame_count, desc="Processing frames") as pbar:
-            for batch_indices, batch_frames in preprocessor.process_clip_frames(
-                    clip,
-                    lambda x: x,
-                    batch_size=YOLO_BATCH_SIZE
-            ):
-                frames.extend(batch_frames)
-                frame_indices.extend(batch_indices)
-
-                batch_pred_detections = detector.detect_video(
-                    batch_frames,
-                    batch_size=YOLO_BATCH_SIZE
-                )
-                pred_detections.extend(batch_pred_detections)
-
-                batch_gt_detections = [
-                    get_frame_detections(clip, idx)
-                    for idx in batch_indices
-                ]
-                gt_detections.extend(batch_gt_detections)
-
-                pbar.update(len(batch_indices))
-
-        pred_output_path = output_dir / f'{clip.video_id}_pred_only.mp4'
-        logger.info(f"Creating prediction-only visualization: {pred_output_path}")
-
-        create_detection_video(
-            frames=frames,
-            pred_detections=pred_detections,
-            output_path=str(pred_output_path),
-            fps=fps
-        )
-
-        combined_output_path = output_dir / f'{clip.video_id}_pred_and_gt.mp4'
-        logger.info(f"Creating combined visualization: {combined_output_path}")
-
-        create_detection_video(
-            frames=frames,
-            pred_detections=pred_detections,
-            gt_detections=gt_detections,
-            output_path=str(combined_output_path),
-            fps=fps
-        )
-
-        logger.info(f"Finished processing clip {clip.video_id}")
-
-    evaluate_tracking(
-        test_clips,
-        detector,
-        preprocessor,
-        Path(OUTPUT_DIR),
+    logger.info("Starting model evaluation")
+    evaluator = ModelEvaluator(
+        detector=detector,
+        preprocessor=preprocessor,
+        output_dir=Path(OUTPUT_DIR),
         batch_size=YOLO_BATCH_SIZE
+    )
+
+    evaluator.evaluate_clips(
+        clips=test_clips,
+        save_visualizations=not args.no_visualizations
     )
 
     logger.info("Done!")

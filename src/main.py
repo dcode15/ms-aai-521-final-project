@@ -44,8 +44,8 @@ def main():
     preprocessor = Preprocessor(CLIPS_DIR, CVAT_DIR)
     train_clips, val_clips, test_clips = preprocessor.split_dataset()
 
-    if not args.skip_preprocessing_detection:
-        preprocessor.prepare_detection_dataset(
+    if not args.skip_preprocessing:
+        preprocessor.prepare_dataset(
             OUTPUT_DIR
         )
 

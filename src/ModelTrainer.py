@@ -5,8 +5,6 @@ from typing import Optional
 import torch
 from ultralytics import YOLO
 
-from Preprocessor import Preprocessor
-
 
 class ModelTrainer:
     """Class for fine-tuning YOLO models on hockey data."""

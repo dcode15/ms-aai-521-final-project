@@ -82,9 +82,9 @@ class Preprocessor:
             f"{len(val_clips)} validation, {len(test_clips)} test clips"
         )
 
-    def prepare_detection_dataset(
+    def prepare_dataset(
             self,
-            output_dir: Path
+            output_dir: str
     ) -> None:
         """Prepare the dataset for YOLO training."""
         dataset_paths = self._setup_dataset_directories(output_dir)
@@ -166,7 +166,7 @@ class Preprocessor:
     def _save_frame_and_labels(
             self,
             frame: np.ndarray,
-            boxes: List,
+            boxes: List[BoundingBox],
             clip: HockeyClip,
             frame_idx: int,
             split: str,
@@ -179,8 +179,11 @@ class Preprocessor:
         label_path = paths['labels'] / split / f"{clip.video_id}_{frame_idx:06d}.txt"
         with open(label_path, 'w') as f:
             for box in boxes:
+                if box.category is None:
+                    continue
+
                 yolo_coords = self._convert_box_to_yolo(box, clip.width, clip.height)
-                class_idx = 0
+                class_idx = box.category.to_class_idx()
                 f.write(f"{class_idx} {yolo_coords[0]:.6f} {yolo_coords[1]:.6f} "
                         f"{yolo_coords[2]:.6f} {yolo_coords[3]:.6f}\n")
 
@@ -191,8 +194,13 @@ class Preprocessor:
             'train': str(paths['images'] / 'train'),
             'val': str(paths['images'] / 'val'),
             'test': str(paths['images'] / 'test'),
-            'nc': 1,
-            'names': ['player']
+            'nc': 4,
+            'names': [
+                'white_keeper',
+                'white_player',
+                'black_keeper',
+                'black_player'
+            ]
         }
 
         yaml_path = paths['dataset'] / 'dataset.yaml'

@@ -1,7 +1,7 @@
 # Paths
 CLIPS_DIR = "../data/clips"
 CVAT_DIR = "../data/CVAT_Style_labels"
-OUTPUT_DIR = "../out"
+OUTPUT_DIR = "D:/Repos/ms-aai-521-final-project/out"
 # CLIPS_DIR = "/content/drive/Othercomputers/Desktop/data/clips"
 # CVAT_DIR = "/content/drive/Othercomputers/Desktop/data/CVAT_Style_labels"
 # OUTPUT_DIR = "/content/drive/MyDrive/AAI-521/out"

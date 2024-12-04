@@ -148,17 +148,21 @@ class Visualizer:
     ) -> Tuple[int, int, int]:
         """Get or generate color for a box."""
         if box.track_id not in color_map:
-            color_map[box.track_id] = self._generate_track_color(box.track_id)
+            base_color = self._get_category_base_color(box)
+            color_map[box.track_id] = self._generate_track_color(box.track_id, base_color)
         return color_map[box.track_id]
 
-    def _generate_track_color(self, track_id: str) -> Tuple[int, int, int]:
-        """Generate a consistent color for a track ID."""
+    def _generate_track_color(
+            self,
+            track_id: str,
+            base_color: Tuple[int, int, int]
+    ) -> Tuple[int, int, int]:
+        """Generate a consistent color for a track ID based on category."""
         track_num = hash(track_id) % 100000
-        return (
-            (track_num * 123) % 255,
-            (track_num * 456) % 255,
-            (track_num * 789) % 255
-        )
+        r = (base_color[0] + track_num * 123) % 255
+        g = (base_color[1] + track_num * 456) % 255
+        b = (base_color[2] + track_num * 789) % 255
+        return (r, g, b)
 
     def _draw_single_box(
             self,
@@ -283,11 +287,14 @@ class Visualizer:
     ) -> str:
         """Create the label text for a box."""
         label_parts = []
+        prefix = "GT" if box_type == 'gt' else "P"
+
         if box.track_id:
-            prefix = "GT" if box_type == 'gt' else "P"
             label_parts.append(f"{prefix}-{box.track_id}")
-        if box.team:
-            label_parts.append(f"Team: {box.team}")
+
+        if box.team and box.player_type:
+            label_parts.append(f"{box.team}_{box.player_type}")
+
         return " | ".join(label_parts) if label_parts else box.label
 
     def _initialize_color_map(
@@ -301,12 +308,25 @@ class Visualizer:
         for frame_dets in pred_detections:
             for det in frame_dets:
                 if det.track_id and det.track_id not in color_map:
-                    color_map[det.track_id] = self._generate_track_color(det.track_id)
+                    base_color = self._get_category_base_color(det)
+                    color_map[det.track_id] = self._generate_track_color(det.track_id, base_color)
 
         if gt_detections:
             for frame_dets in gt_detections:
                 for det in frame_dets:
                     if det.track_id and det.track_id not in color_map:
-                        color_map[det.track_id] = self._generate_track_color(det.track_id)
+                        base_color = self._get_category_base_color(det)
+                        color_map[det.track_id] = self._generate_track_color(det.track_id, base_color)
 
         return color_map
+
+    def _get_category_base_color(
+            self,
+            box: BoundingBox
+    ) -> Tuple[int, int, int]:
+        """Get base color for player category."""
+        if box.team == 'white':
+            return (200, 200, 200) if box.player_type == 'player' else (255, 255, 255)
+        elif box.team == 'black':
+            return (50, 50, 50) if box.player_type == 'player' else (0, 0, 0)
+        return 128, 128, 128

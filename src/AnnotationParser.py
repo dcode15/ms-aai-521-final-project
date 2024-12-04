@@ -36,10 +36,13 @@ class AnnotationParser:
                 frame_indices.add(frame_idx)
 
                 team = None
+                player_type = None
+
                 if label in ['player', 'keeper']:
                     team_attr = box.find(".//attribute[@name='team']")
                     if team_attr is not None:
                         team = team_attr.text
+                    player_type = 'keeper' if label == 'keeper' else 'player'
 
                 bbox = BoundingBox(
                     frame_idx=frame_idx,
@@ -50,7 +53,8 @@ class AnnotationParser:
                     xbr=float(box.get('xbr')),
                     ybr=float(box.get('ybr')),
                     occluded=box.get('occluded') == '1',
-                    team=team
+                    team=team,
+                    player_type=player_type
                 )
                 tracks[track_id].append(bbox)
 

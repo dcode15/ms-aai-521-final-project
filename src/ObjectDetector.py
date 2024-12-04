@@ -20,7 +20,13 @@ class ObjectDetector:
         self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.model = YOLO(model_name)
-        self.person_class = 0
+
+        self.class_names = [
+            'white_keeper',
+            'white_player',
+            'black_keeper',
+            'black_player'
+        ]
 
         self.tracker_params = dict(
             tracker="bytetrack.yaml",
@@ -39,22 +45,19 @@ class ObjectDetector:
 
         boxes = []
         for det in results.boxes:
-            if int(det.cls) != self.person_class:
-                continue
-
+            class_idx = int(det.cls)
             x1, y1, x2, y2 = map(float, det.xyxy[0])
             track_id = int(det.id) if det.id is not None else -1
 
-            bbox = BoundingBox(
+            bbox = BoundingBox.create_from_detection(
                 frame_idx=frame_idx,
                 track_id=str(track_id),
-                label="player",
                 xtl=x1,
                 ytl=y1,
                 xbr=x2,
                 ybr=y2,
-                occluded=False,
-                team=None
+                class_idx=class_idx,
+                occluded=False
             )
             boxes.append(bbox)
 
@@ -81,22 +84,19 @@ class ObjectDetector:
 
                 if results.boxes is not None:
                     for det in results.boxes:
-                        if int(det.cls) != self.person_class:
-                            continue
-
+                        class_idx = int(det.cls)
                         x1, y1, x2, y2 = map(float, det.xyxy[0])
                         track_id = int(det.id) if det.id is not None else -1
 
-                        bbox = BoundingBox(
+                        bbox = BoundingBox.create_from_detection(
                             frame_idx=frame_idx,
                             track_id=str(track_id),
-                            label="player",
                             xtl=x1,
                             ytl=y1,
                             xbr=x2,
                             ybr=y2,
-                            occluded=False,
-                            team=None
+                            class_idx=class_idx,
+                            occluded=False
                         )
                         frame_boxes.append(bbox)
 

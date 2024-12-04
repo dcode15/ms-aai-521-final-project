@@ -10,8 +10,9 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 from AnnotationParser import AnnotationParser
+from BoundingBox import BoundingBox
 from VideoAnnotation import HockeyClip
-from config import TRAIN_PROPORTION, VALIDATION_PROPORTION, TEST_PROPORTION
+from config import VALIDATION_PROPORTION, TEST_PROPORTION
 
 
 class Preprocessor:
@@ -81,17 +82,12 @@ class Preprocessor:
             f"{len(val_clips)} validation, {len(test_clips)} test clips"
         )
 
-    def prepare_yolo_dataset(
+    def prepare_detection_dataset(
             self,
-            output_dir: Path,
-            force_prepare: bool = False
+            output_dir: Path
     ) -> None:
         """Prepare the dataset for YOLO training."""
         dataset_paths = self._setup_dataset_directories(output_dir)
-
-        if not force_prepare and dataset_paths['dataset'].exists():
-            self.logger.info("Using existing dataset directory")
-            return
 
         self.logger.info("Preparing dataset...")
         train_clips, val_clips, test_clips = self.split_dataset()
@@ -100,9 +96,9 @@ class Preprocessor:
         self._process_splits(splits, dataset_paths)
         self._create_dataset_config(dataset_paths)
 
-    def _setup_dataset_directories(self, output_dir: Path) -> Dict[str, Path]:
+    def _setup_dataset_directories(self, output_dir: str) -> Dict[str, Path]:
         """Create and return dataset directory structure."""
-        dataset_dir = output_dir / 'dataset'
+        dataset_dir = Path(output_dir) / 'dataset'
         images_dir = dataset_dir / 'images'
         labels_dir = dataset_dir / 'labels'
 

@@ -44,19 +44,22 @@ def main():
     preprocessor = Preprocessor(CLIPS_DIR, CVAT_DIR)
     train_clips, val_clips, test_clips = preprocessor.split_dataset()
 
+    if not args.skip_preprocessing_detection:
+        preprocessor.prepare_detection_dataset(
+            OUTPUT_DIR
+        )
+
     if not args.skip_training:
         logger.info("Starting YOLO fine-tuning")
         trainer = ModelTrainer(
             model_path=YOLO_MODEL,
-            preprocessor=preprocessor,
-            output_dir=OUTPUT_DIR
+            output_dir=OUTPUT_DIR,
         )
 
         trainer.train(
             epochs=TRAIN_EPOCHS,
             batch_size=TRAIN_BATCH_SIZE,
             learning_rate=TRAIN_LEARNING_RATE,
-            force_prepare=not args.skip_preprocessing
         )
         trainer.export_model()
     else:

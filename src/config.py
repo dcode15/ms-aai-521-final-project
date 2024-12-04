@@ -1,11 +1,10 @@
 # Paths
-# CLIPS_DIR = "../data/clips"
-# CVAT_DIR = "../data/CVAT_Style_labels"
-# OUTPUT_DIR = "../out"
-CLIPS_DIR = "/content/drive/Othercomputers/Desktop/data/clips"
-CVAT_DIR = "/content/drive/Othercomputers/Desktop/data/CVAT_Style_labels"
-OUTPUT_DIR = "/content/drive/MyDrive/AAI-521/out"
-FRAMES_DIR = f"{OUTPUT_DIR}/frames"
+CLIPS_DIR = "../data/clips"
+CVAT_DIR = "../data/CVAT_Style_labels"
+OUTPUT_DIR = "../out"
+# CLIPS_DIR = "/content/drive/Othercomputers/Desktop/data/clips"
+# CVAT_DIR = "/content/drive/Othercomputers/Desktop/data/CVAT_Style_labels"
+# OUTPUT_DIR = "/content/drive/MyDrive/AAI-521/out"
 
 # Data Split
 TRAIN_PROPORTION = 0.7

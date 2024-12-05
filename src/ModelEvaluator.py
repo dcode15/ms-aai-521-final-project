@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Dict, Optional
 
+import matplotlib.pyplot as plt
 import motmetrics as mm
 import numpy as np
 import pandas as pd
@@ -208,3 +209,56 @@ class ModelEvaluator:
 
         df = pd.DataFrame([weighted_metrics])
         df.to_csv(results_dir / 'dataset_metrics.csv', index=False)
+
+    def plot_training_metrics(self, results_path: Path, output_dir: Optional[Path] = None) -> None:
+        """
+        Create a 2x2 plot grid showing key training metrics.
+
+        Args:
+            results_path: Path to the results.csv file
+            output_dir: Optional directory to save the plot. If None, display instead.
+        """
+        df = pd.read_csv(results_path)
+
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
+        fig.suptitle('Training Metrics', fontsize=16)
+
+        ax1.plot(df['epoch'], df['train/box_loss'], label='Train')
+        ax1.plot(df['epoch'], df['val/box_loss'], label='Validation')
+        ax1.set_title('Box Loss')
+        ax1.set_xlabel('Epoch')
+        ax1.set_ylabel('Loss')
+        ax1.legend()
+        ax1.grid(True)
+
+        ax2.plot(df['epoch'], df['train/cls_loss'], label='Train')
+        ax2.plot(df['epoch'], df['val/cls_loss'], label='Validation')
+        ax2.set_title('Classification Loss')
+        ax2.set_xlabel('Epoch')
+        ax2.set_ylabel('Loss')
+        ax2.legend()
+        ax2.grid(True)
+
+        ax3.plot(df['epoch'], df['metrics/mAP50-95(B)'], label='mAP50-95')
+        ax3.set_title('mAP50-95')
+        ax3.set_xlabel('Epoch')
+        ax3.set_ylabel('mAP')
+        ax3.legend()
+        ax3.grid(True)
+
+        ax4.plot(df['epoch'], df['metrics/precision(B)'], label='Precision')
+        ax4.set_title('Precision')
+        ax4.set_xlabel('Epoch')
+        ax4.set_ylabel('Precision')
+        ax4.legend()
+        ax4.grid(True)
+
+        plt.tight_layout()
+
+        if output_dir:
+            output_dir = Path(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            plt.savefig(output_dir / 'training_metrics.png', dpi=300, bbox_inches='tight')
+            plt.close()
+        else:
+            plt.show()

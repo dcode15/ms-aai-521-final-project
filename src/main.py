@@ -115,6 +115,11 @@ def main():
     logger.info("Starting model evaluation")
     evaluator = ModelEvaluator()
 
+    evaluator.plot_training_metrics(
+        results_path=Path(OUTPUT_DIR) / 'finetune'  / 'results.csv',
+        output_dir=Path(OUTPUT_DIR) / 'evaluation',
+    )
+
     predictions = process_clips_for_evaluation(
         test_clips,
         preprocessor,

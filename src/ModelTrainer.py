@@ -45,13 +45,14 @@ class ModelTrainer:
             device=self.device,
             project=str(self.output_dir),
             name='finetune',
-            lr0=learning_rate,
-            lrf=learning_rate / 10,
             warmup_epochs=3,
             save=True,
             save_period=10,
             val=True,
-            resume=False
+            resume=False,
+            patience=3,
+            exist_ok=True,
+            plots=True,
         )
 
     def export_model(self, format: str = 'torchscript') -> None:

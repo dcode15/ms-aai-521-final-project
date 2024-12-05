@@ -1,143 +1,210 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import List, Dict, Optional
 
+import motmetrics as mm
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 from BoundingBox import BoundingBox
-from ObjectDetector import ObjectDetector
-from Preprocessor import Preprocessor
 from VideoAnnotation import HockeyClip
 
 
 @dataclass
-class ProcessedFrameData:
-    """Holds processed frame data and detections."""
-    frames: List[np.ndarray]
-    frame_indices: List[int]
-    pred_detections: List[List[BoundingBox]]
-    gt_detections: List[List[BoundingBox]]
+class TrackingMetrics:
+    mota: float
+    motp: float
+    num_switches: int
+    num_fragmentations: int
+    num_frames: int
+    precision: float
+    recall: float
 
 
 class ModelEvaluator:
-    """Class for evaluating model performance on hockey tracking data."""
 
-    def __init__(
-            self,
-            detector: ObjectDetector,
-            preprocessor: Preprocessor,
-            output_dir: Path,
-            batch_size: int = 16,
-    ):
+    def __init__(self, iou_threshold: float = 0.5):
         self.logger = logging.getLogger(__name__)
-        self.detector = detector
-        self.preprocessor = preprocessor
-        self.output_dir = Path(output_dir)
-        self.batch_size = batch_size
+        self.iou_threshold = iou_threshold
 
-    def evaluate_clips(
+    def _convert_to_mot_format(
             self,
-            clips: List[HockeyClip]
-    ) -> Dict[str, Tuple[List[np.ndarray], List[List[BoundingBox]], List[List[BoundingBox]]]]:
-        """
-        Evaluate model performance on a list of clips.
+            boxes: List[BoundingBox],
+            frame_width: int,
+            frame_height: int
+    ) -> np.ndarray:
+        mot_boxes = []
+        for box in boxes:
+            x1 = max(0, min(box.xtl, frame_width - 1))
+            y1 = max(0, min(box.ytl, frame_height - 1))
+            x2 = max(0, min(box.xbr, frame_width - 1))
+            y2 = max(0, min(box.ybr, frame_height - 1))
 
-        Returns:
-            Dict mapping clip video_ids to tuples of (frames, predictions, ground_truth)
-        """
-        self.logger.info("Starting model evaluation")
-        results = {}
+            w = x2 - x1
+            h = y2 - y1
 
-        for clip in tqdm(clips):
-            self.logger.info(f"Processing clip {clip.video_id}")
-            processed_data = self._process_clip_frames(clip)
-            results[clip.video_id] = (
-                processed_data.frames,
-                processed_data.pred_detections,
-                processed_data.gt_detections
-            )
+            mot_boxes.append([x1, y1, w, h])
 
-        return results
+        return np.array(mot_boxes)
 
-    def _process_clip_frames(self, clip: HockeyClip) -> ProcessedFrameData:
-        """Process frames from a clip and collect predictions."""
-        frames: List[np.ndarray] = []
-        frame_indices: List[int] = []
-        pred_detections: List[List[BoundingBox]] = []
-        gt_detections: List[List[BoundingBox]] = []
-
-        for batch_data in self._process_frame_batches(clip):
-            batch_indices, batch_frames, batch_preds, batch_gt = batch_data
-
-            frames.extend(batch_frames)
-            frame_indices.extend(batch_indices)
-            pred_detections.extend(batch_preds)
-            gt_detections.extend(batch_gt)
-
-        return ProcessedFrameData(
-            frames=frames,
-            frame_indices=frame_indices,
-            pred_detections=pred_detections,
-            gt_detections=gt_detections
-        )
-
-    def _process_frame_batches(
-            self,
-            clip: HockeyClip
-    ) -> List[Tuple[List[int], List[np.ndarray], List[List[BoundingBox]], List[List[BoundingBox]]]]:
-        """Process clip frames in batches."""
-        batches = []
-
-        for batch_indices, batch_frames in self.preprocessor.process_clip_frames(
-                clip,
-                lambda x: x,
-                batch_size=self.batch_size
-        ):
-            batch_pred_detections = self._get_batch_predictions(batch_frames)
-            batch_gt_detections = self._get_batch_ground_truth(clip, batch_indices)
-
-            batches.append((
-                batch_indices,
-                batch_frames,
-                batch_pred_detections,
-                batch_gt_detections
-            ))
-
-        return batches
-
-    def _get_batch_predictions(
-            self,
-            batch_frames: List[np.ndarray]
-    ) -> List[List[BoundingBox]]:
-        """Get model predictions for a batch of frames."""
-        return self.detector.detect_video(
-            batch_frames,
-            batch_size=self.batch_size
-        )
-
-    def _get_batch_ground_truth(
+    def _get_frame_detections(
             self,
             clip: HockeyClip,
-            batch_indices: List[int]
-    ) -> List[List[BoundingBox]]:
-        """Get ground truth detections for a batch of frames."""
-        return [
-            self._get_frame_ground_truth(clip, idx)
-            for idx in batch_indices
-        ]
-
-    def _get_frame_ground_truth(
-            self,
-            clip: HockeyClip,
-            frame_idx: int
+            frame_idx: int,
+            include_keepers: bool = True
     ) -> List[BoundingBox]:
-        """Get ground truth detections for a specific frame."""
         frame_boxes = []
+        valid_labels = {'player'} | ({'keeper'} if include_keepers else set())
+
         for track in clip.tracks.values():
             frame_boxes.extend([
                 box for box in track
-                if box.frame_idx == frame_idx and box.label in ['player', 'keeper']
+                if box.frame_idx == frame_idx and box.label in valid_labels
             ])
         return frame_boxes
+
+    def evaluate_clip(
+            self,
+            clip: HockeyClip,
+            pred_detections: List[List[BoundingBox]],
+            include_keepers: bool = True
+    ) -> TrackingMetrics:
+        acc = mm.MOTAccumulator(auto_id=True)
+
+        num_frames = len(pred_detections)
+        frame_indices = range(num_frames)
+
+        for frame_idx in tqdm(frame_indices, desc="Computing tracking metrics"):
+            gt_boxes = self._get_frame_detections(
+                clip,
+                frame_idx,
+                include_keepers
+            )
+            gt_mot = self._convert_to_mot_format(
+                gt_boxes,
+                clip.width,
+                clip.height
+            )
+
+            pred_boxes = pred_detections[frame_idx]
+            pred_mot = self._convert_to_mot_format(
+                pred_boxes,
+                clip.width,
+                clip.height
+            )
+
+            gt_ids = [box.track_id for box in gt_boxes]
+            pred_ids = [box.track_id for box in pred_boxes]
+
+            if len(gt_mot) == 0 and len(pred_mot) == 0:
+                continue
+
+            distances = mm.distances.iou_matrix(
+                gt_mot,
+                pred_mot,
+                max_iou=1 - self.iou_threshold
+            )
+
+            acc.update(
+                gt_ids,
+                pred_ids,
+                distances
+            )
+
+        mh = mm.metrics.create()
+        summary = mh.compute(
+            acc,
+            metrics=[
+                'mota', 'motp', 'num_switches',
+                'num_fragmentations', 'precision', 'recall'
+            ],
+            name='acc'
+        )
+
+        return TrackingMetrics(
+            mota=summary['mota']['acc'],
+            motp=summary['motp']['acc'],
+            num_switches=summary['num_switches']['acc'],
+            num_fragmentations=summary['num_fragmentations']['acc'],
+            num_frames=num_frames,
+            precision=summary['precision']['acc'],
+            recall=summary['recall']['acc']
+        )
+
+    def evaluate_dataset(
+            self,
+            clips: List[HockeyClip],
+            all_pred_detections: List[List[List[BoundingBox]]],
+            output_dir: Optional[Path] = None,
+            include_keepers: bool = True
+    ) -> Dict[str, TrackingMetrics]:
+        results = {}
+
+        for clip, pred_detections in zip(clips, all_pred_detections):
+            self.logger.info(f"Evaluating clip {clip.video_id}")
+
+            metrics = self.evaluate_clip(
+                clip,
+                pred_detections,
+                include_keepers
+            )
+            results[clip.video_id] = metrics
+
+            if output_dir:
+                self._save_clip_results(
+                    clip.video_id,
+                    metrics,
+                    output_dir
+                )
+
+        if output_dir:
+            self._save_dataset_results(results, output_dir)
+
+        return results
+
+    def _save_clip_results(
+            self,
+            clip_id: str,
+            metrics: TrackingMetrics,
+            output_dir: Path
+    ) -> None:
+        results_dir = output_dir / 'tracking_metrics'
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        results = {
+            'mota': metrics.mota,
+            'motp': metrics.motp,
+            'num_switches': metrics.num_switches,
+            'num_fragmentations': metrics.num_fragmentations,
+            'num_frames': metrics.num_frames,
+            'precision': metrics.precision,
+            'recall': metrics.recall
+        }
+
+        df = pd.DataFrame([results])
+        df.to_csv(results_dir / f'{clip_id}_metrics.csv', index=False)
+
+    def _save_dataset_results(
+            self,
+            results: Dict[str, TrackingMetrics],
+            output_dir: Path
+    ) -> None:
+        results_dir = output_dir / 'tracking_metrics'
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        total_frames = sum(m.num_frames for m in results.values())
+
+        weighted_metrics = {
+            'mota': sum(m.mota * m.num_frames for m in results.values()) / total_frames,
+            'motp': sum(m.motp * m.num_frames for m in results.values()) / total_frames,
+            'num_switches': sum(m.num_switches for m in results.values()),
+            'num_fragmentations': sum(m.num_fragmentations for m in results.values()),
+            'total_frames': total_frames,
+            'precision': sum(m.precision * m.num_frames for m in results.values()) / total_frames,
+            'recall': sum(m.recall * m.num_frames for m in results.values()) / total_frames
+        }
+
+        df = pd.DataFrame([weighted_metrics])
+        df.to_csv(results_dir / 'dataset_metrics.csv', index=False)

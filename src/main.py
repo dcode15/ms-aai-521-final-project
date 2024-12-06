@@ -5,8 +5,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
+import yaml
 from tqdm import tqdm
 
+from HyperparameterTuner import TuningConfig, HyperparameterTuner
 from ModelEvaluator import ModelEvaluator
 from ModelTrainer import ModelTrainer
 from ObjectDetector import ObjectDetector
@@ -27,7 +29,8 @@ from config import (
     EVAL_BATCH_SIZE,
     VIZ_FPS,
     VIZ_CODEC,
-    VIZ_BOX_THICKNESS
+    VIZ_BOX_THICKNESS,
+    TUNING_TRIALS
 )
 
 
@@ -75,6 +78,8 @@ def main():
                         help='Skip dataset preprocessing')
     parser.add_argument('--skip-training', action='store_true',
                         help='Skip training and use existing model')
+    parser.add_argument('--tune-hyperparameters', action='store_true',
+                        help='Perform hyperparameter tuning using Optuna')
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -88,6 +93,37 @@ def main():
     if not args.skip_preprocessing:
         preprocessor.prepare_dataset(OUTPUT_DIR)
 
+    hyperparameters = {}
+
+    if args.tune_hyperparameters:
+        logger.info("Starting hyperparameter tuning")
+        tuning_config = TuningConfig(
+            n_trials=TUNING_TRIALS,
+            study_name="hockey_tracking_optimization"
+        )
+
+        tuner = HyperparameterTuner(
+            base_model_path=YOLO_MODEL,
+            output_dir=OUTPUT_DIR,
+            train_clips=train_clips,
+            val_clips=val_clips,
+            preprocessor=preprocessor,
+            config=tuning_config
+        )
+
+        hyperparameters = tuner.tune()
+        logger.info(f"Best hyperparameters found: {hyperparameters}")
+
+        save_path = Path(OUTPUT_DIR) / "best_hyperparameters.yaml"
+        with open(save_path, 'w') as f:
+            yaml.safe_dump(hyperparameters, f)
+    else:
+        hyperparameters_path = Path(OUTPUT_DIR) / "best_hyperparameters.yaml"
+        if hyperparameters_path.exists():
+            with open(hyperparameters_path, 'r') as f:
+                hyperparameters = yaml.safe_load(f)
+            logger.info("Loaded previously tuned hyperparameters")
+
     if not args.skip_training:
         logger.info("Starting YOLO fine-tuning")
         trainer = ModelTrainer(
@@ -98,25 +134,31 @@ def main():
         trainer.train(
             epochs=TRAIN_EPOCHS,
             batch_size=TRAIN_BATCH_SIZE,
-            learning_rate=TRAIN_LEARNING_RATE,
+            learning_rate=hyperparameters.get('learning_rate', TRAIN_LEARNING_RATE),
+            warmup_epochs=hyperparameters.get('warmup_epochs', 3),
+            weight_decay=hyperparameters.get('weight_decay', 0.0005),
+            dropout=hyperparameters.get('dropout', 0.0),
+            box_loss_weight=hyperparameters.get('box_loss_weight', 7.5),
+            cls_loss_weight=hyperparameters.get('cls_loss_weight', 0.5)
         )
         trainer.export_model()
     else:
         logger.info("Skipping training due to --skip-training flag.")
 
     logger.info("Loading fine-tuned model for detection")
+
     detector = ObjectDetector(
         model_name=str(Path(OUTPUT_DIR) / 'finetune' / 'weights' / 'best.pt'),
-        conf_threshold=YOLO_CONFIDENCE_THRESHOLD,
-        track_buffer=TRACK_BUFFER,
-        match_thresh=MATCH_THRESH,
+        conf_threshold=hyperparameters.get('conf_threshold', YOLO_CONFIDENCE_THRESHOLD),
+        track_buffer=hyperparameters.get('track_buffer', TRACK_BUFFER),
+        match_thresh=hyperparameters.get('match_thresh', MATCH_THRESH),
     )
 
     logger.info("Starting model evaluation")
     evaluator = ModelEvaluator()
 
     evaluator.plot_training_metrics(
-        results_path=Path(OUTPUT_DIR) / 'finetune'  / 'results.csv',
+        results_path=Path(OUTPUT_DIR) / 'finetune' / 'results.csv',
         output_dir=Path(OUTPUT_DIR) / 'evaluation',
     )
 
@@ -135,7 +177,6 @@ def main():
         include_keepers=True
     )
 
-    # Log evaluation results
     logger.info("Evaluation Results:")
     for clip_id, metrics in eval_results.items():
         logger.info(f"\nClip: {clip_id}")
@@ -143,8 +184,13 @@ def main():
         logger.info(f"MOTP: {metrics.motp:.4f}")
         logger.info(f"Precision: {metrics.precision:.4f}")
         logger.info(f"Recall: {metrics.recall:.4f}")
+        f1_score = 2 * (metrics.precision * metrics.recall) / (metrics.precision + metrics.recall + 1e-10)
+        logger.info(f"F1 Score: {f1_score:.4f}")
         logger.info(f"Number of track switches: {metrics.num_switches}")
         logger.info(f"Number of fragmentations: {metrics.num_fragmentations}")
+
+        combined_metric = 0.4 * metrics.mota + 0.3 * metrics.motp + 0.3 * f1_score
+        logger.info(f"Combined Metric: {combined_metric:.4f}")
 
     logger.info("Creating visualizations")
     visualizer = Visualizer(default_thickness=VIZ_BOX_THICKNESS)

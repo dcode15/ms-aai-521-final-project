@@ -1,0 +1,81 @@
+\documentclass[12pt,stu,donotrepeattitle,floatsintext]{apa7}
+
+\usepackage[american]{babel}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{pdfpages}
+\usepackage[style=apa,backend=biber]{biblatex}
+\usepackage[options]{nohyperref}
+\usepackage{url}
+\usepackage{appendix}
+
+\DeclareLanguageMapping{american}{american-apa}
+\addbibresource{main.bib}
+\linespread{2}
+
+
+\newcommand{\q}[1]{``#1''}
+\newcommand{\customsection}[2]{
+  \phantomsection
+  \section*{#1}\label{#2}
+  \addcontentsline{toc}{section}{#1}
+}
+\newcommand{\customsubsection}[2]{
+  \phantomsection
+  \subsection*{#1}\label{#2}
+  \addcontentsline{toc}{subsection}{#1}
+}
+\newcommand{\customsubsubsection}[2]{
+  \phantomsection
+  \subsubsection*{#1}\label{#2}
+  \addcontentsline{toc}{subsubsection}{#1}
+}
+
+\title{Automated Ice Hockey Player Tracking}
+
+\authorsnames{Douglas Code}
+\authorsaffiliations{University of San Diego}
+\course{AAI-521: Applied Computer Vision for AI}
+\professor{Siamak Aram, Ph.D}
+\duedate{December 9, 2024}
+
+\begin{document}
+    \maketitle
+
+    \tableofcontents
+    \newpage
+
+
+    \customsection{Introduction}{introduction}
+    
+    \customsection{Dataset and Preprocessing}{preprocessing}
+    
+    \customsection{Model Architecture}{architecture}
+    
+    \customsubsection{YOLO}{yolo}
+    
+    \customsubsection{ByteTrack}{bytetrack}
+
+    \customsection{Training}{trainig}
+
+    \customsection{Postprocessing}{postprocessing}
+
+    \customsection{Evaluation}{evaluation}
+
+    \customsection{Conclusions}{conclusions}
+
+    \customsubsection{Future Work}{future-work}
+
+    \printbibliography
+    \clearpage
+
+    \begin{appendices}
+        \section{Appendix A: Project Links}\label{sec:project-links}
+
+        \section{Appendix B: Hyperparameter Configuration}\label{sec:hyperparameters}
+
+        \section{Appendix C: Visualizations}\label{sec:visualizations}
+
+    \end{appendices}
+
+\end{document}

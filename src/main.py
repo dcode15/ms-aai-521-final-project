@@ -25,7 +25,7 @@ from config import (
     MATCH_THRESH,
     TRAIN_EPOCHS,
     TRAIN_BATCH_SIZE,
-    TRAIN_LEARNING_RATE,
+    TRAIN_PATIENCE,
     EVAL_BATCH_SIZE,
     VIZ_FPS,
     VIZ_CODEC,
@@ -131,17 +131,13 @@ def main():
             output_dir=OUTPUT_DIR,
         )
 
-        trainer.train(
-            epochs=TRAIN_EPOCHS,
-            batch_size=TRAIN_BATCH_SIZE,
-            learning_rate=hyperparameters.get('learning_rate', TRAIN_LEARNING_RATE),
-            warmup_epochs=hyperparameters.get('warmup_epochs', 3),
-            weight_decay=hyperparameters.get('weight_decay', 0.0005),
-            dropout=hyperparameters.get('dropout', 0.0),
-            box_loss_weight=hyperparameters.get('box_loss_weight', 7.5),
-            cls_loss_weight=hyperparameters.get('cls_loss_weight', 0.5)
-        )
-        trainer.export_model()
+        hyperparameters['training'].update({
+            'epochs': TRAIN_EPOCHS,
+            'batch': TRAIN_BATCH_SIZE,
+            'patience': TRAIN_PATIENCE
+        })
+        trainer.train(hyperparameters)
+        trainer.export_model('torchscript')
     else:
         logger.info("Skipping training due to --skip-training flag.")
 
@@ -149,9 +145,7 @@ def main():
 
     detector = ObjectDetector(
         model_name=str(Path(OUTPUT_DIR) / 'finetune' / 'weights' / 'best.pt'),
-        conf_threshold=hyperparameters.get('conf_threshold', YOLO_CONFIDENCE_THRESHOLD),
-        track_buffer=hyperparameters.get('track_buffer', TRACK_BUFFER),
-        match_thresh=hyperparameters.get('match_thresh', MATCH_THRESH),
+        tracking_params=hyperparameters['detection']
     )
 
     logger.info("Starting model evaluation")

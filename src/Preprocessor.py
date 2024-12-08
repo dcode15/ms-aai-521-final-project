@@ -200,6 +200,12 @@ class Preprocessor:
                 'white_player',
                 'black_keeper',
                 'black_player'
+            ],
+            'weights': [
+                33.33,
+                2.55,
+                25.73,
+                2.43
             ]
         }
 

@@ -46,20 +46,25 @@ class HyperparameterTuner:
 
     def _suggest_hyperparameters(self, trial: Trial) -> Dict[str, Any]:
         """Suggest hyperparameters for a trial."""
+        # track_range = trial.suggest_float('track_range', 0.01, 0.5)
         params = {
-            'learning_rate': trial.suggest_categorical('learning_rate', [0.0098]),
-            'warmup_epochs': trial.suggest_categorical('warmup_epochs', [2]),
-            'weight_decay': trial.suggest_float('weight_decay', 1e-5, 1e-3),
-            'dropout': trial.suggest_float('dropout', 0.0, 0.75),
-
-            'box_loss_weight': trial.suggest_categorical('box_loss_weight', [8.91]),
-            'cls_loss_weight': trial.suggest_categorical('cls_loss_weight', [0.63]),
-
-            'conf_threshold': trial.suggest_float('conf_threshold', 0.2, 0.8),
-            'iou_threshold': trial.suggest_float('iou_threshold', 0.2, 0.8),
-            'track_buffer': trial.suggest_int('track_buffer', 5, 50),
-            'match_thresh': trial.suggest_float('match_thresh', 0.2, 0.8)
+            'training': {
+                'lr0': trial.suggest_float('learning_rate', 1e-5, 1e-2),
+                'weight_decay': trial.suggest_float('weight_decay', 1e-5, 1e-3, log=True),
+                'dropout': trial.suggest_float('dropout', 0.0, 0.75),
+                'rect': trial.suggest_categorical('rect', [True, False])
+            },
+            'detection': {
+                # 'conf': trial.suggest_float('conf', 0.1, 0.9),
+                # 'iou': trial.suggest_float('iou', 0.1, 0.9),
+                # 'track_buffer': trial.suggest_int('track_buffer', 1, 120),
+                # 'match_thresh': trial.suggest_float('match_thresh', 0.1, 0.9),
+                # 'track_low_thresh': trial.suggest_float('track_low_thresh', 0.01, 0.5),
+                # 'new_track_thresh': trial.suggest_float('new_track_thresh', 0.01, 0.9),
+            }
         }
+        # params['detection']['track_high_thresh'] = params['detection']['track_low_thresh'] + track_range
+
         return params
 
     def _evaluate_model(
@@ -81,13 +86,11 @@ class HyperparameterTuner:
         metrics = []
         for clip, predictions in zip(clips, all_predictions):
             clip_metrics = self.evaluator.evaluate_clip(clip, predictions)
-            f1_score = 2 * (clip_metrics.precision * clip_metrics.recall) / (
-                    clip_metrics.precision + clip_metrics.recall + 1e-10)
-
-            metric = (0.4 * clip_metrics.mota +
-                      0.3 * clip_metrics.motp +
-                      0.3 * f1_score)
-            metrics.append(metric)
+            # harmonic_mean = 4 / (
+            #             1 / clip_metrics.mota + 1 / clip_metrics.motp + 1 / clip_metrics.precision + 1 / clip_metrics.recall)
+            harmonic_mean = 2 / (
+                        1 / clip_metrics.precision + 1 / clip_metrics.recall)
+            metrics.append(harmonic_mean)
 
         return np.mean(metrics)
 
@@ -101,24 +104,18 @@ class HyperparameterTuner:
             device=self.device
         )
 
+        params['training'].update({
+            'epochs': 15,
+            'batch': 8
+        })
         try:
             trainer.train(
-                epochs=15,
-                batch_size=8,
-                learning_rate=params['learning_rate'],
-                warmup_epochs=params['warmup_epochs'],
-                weight_decay=params['weight_decay'],
-                dropout=params['dropout'],
-                box_loss_weight=params['box_loss_weight'],
-                cls_loss_weight=params['cls_loss_weight']
+                training_params=params['training'],
             )
 
             detector = ObjectDetector(
                 model_name=str(Path(self.output_dir) / 'finetune' / 'weights' / 'best.pt'),
-                conf_threshold=params['conf_threshold'],
-                device=self.device,
-                track_buffer=params['track_buffer'],
-                match_thresh=params['match_thresh']
+                tracking_params=params['detection']
             )
 
             metric = self._evaluate_model(detector, self.val_clips)

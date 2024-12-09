@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
-import yaml
 from tqdm import tqdm
 
 from HyperparameterTuner import TuningConfig, HyperparameterTuner
@@ -20,9 +19,6 @@ from config import (
     CVAT_DIR,
     OUTPUT_DIR,
     YOLO_MODEL,
-    YOLO_CONFIDENCE_THRESHOLD,
-    TRACK_BUFFER,
-    MATCH_THRESH,
     TRAIN_EPOCHS,
     TRAIN_BATCH_SIZE,
     TRAIN_PATIENCE,
@@ -30,46 +26,18 @@ from config import (
     VIZ_FPS,
     VIZ_CODEC,
     VIZ_BOX_THICKNESS,
-    TUNING_TRIALS
+    TUNING_TRIALS,
+    TRAIN_LEARNING_RATE,
+    TRAIN_WEIGHT_DECAY,
+    TRAIN_DROPOUT,
+    CONFIDENCE_THRESHOLD,
+    IOU,
+    TRACK_BUFFER,
+    MATCH_THRESHOLD,
+    TRACK_LOW_THRESHOLD,
+    TRACK_HIGH_THRESHOLD,
+    NEW_TRACK_THRESHOLD
 )
-
-
-def process_clips_for_evaluation(
-        clips: List[HockeyClip],
-        preprocessor: Preprocessor,
-        detector: ObjectDetector,
-        batch_size: int
-) -> Dict[str, Tuple[List[np.ndarray], List, List]]:
-    """
-    Process clips to get frames, predictions and ground truth for evaluation.
-
-    Returns:
-        Dict mapping clip ID to tuple of (frames, predictions, ground_truth)
-    """
-    results = {}
-
-    for clip in tqdm(clips, desc="Processing clips"):
-        frames = []
-        pred_detections = []
-        gt_detections = []
-
-        for frame_indices, batch_frames in preprocessor.process_clip_frames(clip, lambda x: x, batch_size):
-            frames.extend(batch_frames)
-            batch_detections = detector.detect_video(batch_frames, batch_size)
-            pred_detections.extend(batch_detections)
-
-            for frame_idx in frame_indices:
-                frame_gt = []
-                for track in clip.tracks.values():
-                    frame_gt.extend([
-                        box for box in track
-                        if box.frame_idx == frame_idx
-                    ])
-                gt_detections.append(frame_gt)
-
-        results[clip.video_id] = (frames, pred_detections, gt_detections)
-
-    return results
 
 
 def main():
@@ -93,8 +61,6 @@ def main():
     if not args.skip_preprocessing:
         preprocessor.prepare_dataset(OUTPUT_DIR)
 
-    hyperparameters = {}
-
     if args.tune_hyperparameters:
         logger.info("Starting hyperparameter tuning")
         tuning_config = TuningConfig(
@@ -113,16 +79,28 @@ def main():
 
         hyperparameters = tuner.tune()
         logger.info(f"Best hyperparameters found: {hyperparameters}")
-
-        save_path = Path(OUTPUT_DIR) / "best_hyperparameters.yaml"
-        with open(save_path, 'w') as f:
-            yaml.safe_dump(hyperparameters, f)
     else:
-        hyperparameters_path = Path(OUTPUT_DIR) / "best_hyperparameters.yaml"
-        if hyperparameters_path.exists():
-            with open(hyperparameters_path, 'r') as f:
-                hyperparameters = yaml.safe_load(f)
-            logger.info("Loaded previously tuned hyperparameters")
+        hyperparameters = {
+            'training': {
+                'lr0': TRAIN_LEARNING_RATE,
+                'weight_decay': TRAIN_WEIGHT_DECAY,
+                'dropout': TRAIN_DROPOUT,
+                'epochs': TRAIN_EPOCHS,
+                'batch': TRAIN_BATCH_SIZE,
+                'patience': TRAIN_PATIENCE,
+            },
+            'detection': {
+                'conf': CONFIDENCE_THRESHOLD,
+                'iou': IOU,
+                'track_buffer': TRACK_BUFFER,
+                'match_thresh': MATCH_THRESHOLD,
+                'track_low_thresh': TRACK_LOW_THRESHOLD,
+                'track_high_thresh': TRACK_HIGH_THRESHOLD,
+                'new_track_thresh': NEW_TRACK_THRESHOLD,
+            }
+        }
+
+        ObjectDetector.write_tracking_params(hyperparameters['detection'], OUTPUT_DIR)
 
     if not args.skip_training:
         logger.info("Starting YOLO fine-tuning")
@@ -131,12 +109,7 @@ def main():
             output_dir=OUTPUT_DIR,
         )
 
-        hyperparameters['training'].update({
-            'epochs': TRAIN_EPOCHS,
-            'batch': TRAIN_BATCH_SIZE,
-            'patience': TRAIN_PATIENCE
-        })
-        trainer.train(hyperparameters)
+        trainer.train(hyperparameters['training'])
         trainer.export_model('torchscript')
     else:
         logger.info("Skipping training due to --skip-training flag.")
@@ -156,7 +129,7 @@ def main():
         output_dir=Path(OUTPUT_DIR) / 'evaluation',
     )
 
-    predictions = process_clips_for_evaluation(
+    predictions = ModelEvaluator.process_clips_for_evaluation(
         test_clips,
         preprocessor,
         detector,

@@ -1,7 +1,9 @@
-from typing import Optional, List
+from pathlib import Path
+from typing import Dict, List, Any, Union
 
 import numpy as np
 import torch
+import yaml
 from ultralytics import YOLO
 
 from BoundingBox import BoundingBox
@@ -35,7 +37,7 @@ class ObjectDetector:
             batch_results = self.model.track(
                 source=batch_frames,
                 verbose=False,
-                **self.tracking_params
+                tracker='D:\\Repos\\ms-aai-521-final-project\\out\\tracker-config.yaml'
             )
 
             for frame_offset, results in enumerate(batch_results):
@@ -63,3 +65,22 @@ class ObjectDetector:
                 all_detections.append(frame_boxes)
 
         return all_detections
+
+    @staticmethod
+    def write_tracking_params(params: Dict[str, Any], output_dir: Union[str, Path]) -> None:
+        output_dir = Path(output_dir)
+        tracking_config = {
+            "tracker_type": "bytetrack",
+            "track_high_thresh": params["track_high_thresh"],
+            "track_low_thresh": params["track_low_thresh"],
+            "new_track_thresh": params["new_track_thresh"],
+            "track_buffer": params["track_buffer"],
+            "match_thresh": params["match_thresh"],
+            "fuse_score": True
+        }
+
+        yaml_content = yaml.safe_dump(tracking_config, sort_keys=False)
+
+        tracking_yaml_path = output_dir / 'tracker-config.yaml'
+        with open(tracking_yaml_path, 'w') as f:
+            f.write(yaml_content)

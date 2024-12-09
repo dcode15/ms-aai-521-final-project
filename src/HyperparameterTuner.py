@@ -2,14 +2,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Dict, Any
 
+import numpy as np
 import optuna
 from optuna.trial import Trial
-import numpy as np
 
+from ModelEvaluator import ModelEvaluator
 from ModelTrainer import ModelTrainer
 from ObjectDetector import ObjectDetector
 from Preprocessor import Preprocessor
-from ModelEvaluator import ModelEvaluator
 from VideoAnnotation import HockeyClip
 
 
@@ -46,24 +46,23 @@ class HyperparameterTuner:
 
     def _suggest_hyperparameters(self, trial: Trial) -> Dict[str, Any]:
         """Suggest hyperparameters for a trial."""
-        # track_range = trial.suggest_float('track_range', 0.01, 0.5)
+        track_range = trial.suggest_float('track_range', 0.01, 0.5)
         params = {
             'training': {
                 'lr0': trial.suggest_float('learning_rate', 1e-5, 1e-2),
                 'weight_decay': trial.suggest_float('weight_decay', 1e-5, 1e-3, log=True),
                 'dropout': trial.suggest_float('dropout', 0.0, 0.75),
-                'rect': trial.suggest_categorical('rect', [True, False])
             },
             'detection': {
-                # 'conf': trial.suggest_float('conf', 0.1, 0.9),
-                # 'iou': trial.suggest_float('iou', 0.1, 0.9),
-                # 'track_buffer': trial.suggest_int('track_buffer', 1, 120),
-                # 'match_thresh': trial.suggest_float('match_thresh', 0.1, 0.9),
-                # 'track_low_thresh': trial.suggest_float('track_low_thresh', 0.01, 0.5),
-                # 'new_track_thresh': trial.suggest_float('new_track_thresh', 0.01, 0.9),
+                'conf': trial.suggest_float('conf', 0.1, 0.9),
+                'iou': trial.suggest_float('iou', 0.1, 0.9),
+                'track_buffer': trial.suggest_int('track_buffer', 1, 120),
+                'match_thresh': trial.suggest_float('match_thresh', 0.1, 0.9),
+                'track_low_thresh': trial.suggest_float('track_low_thresh', 0.01, 0.5),
+                'new_track_thresh': trial.suggest_float('new_track_thresh', 0.01, 0.9),
             }
         }
-        # params['detection']['track_high_thresh'] = params['detection']['track_low_thresh'] + track_range
+        params['detection']['track_high_thresh'] = params['detection']['track_low_thresh'] + track_range
 
         return params
 
@@ -86,10 +85,8 @@ class HyperparameterTuner:
         metrics = []
         for clip, predictions in zip(clips, all_predictions):
             clip_metrics = self.evaluator.evaluate_clip(clip, predictions)
-            # harmonic_mean = 4 / (
-            #             1 / clip_metrics.mota + 1 / clip_metrics.motp + 1 / clip_metrics.precision + 1 / clip_metrics.recall)
-            harmonic_mean = 2 / (
-                        1 / clip_metrics.precision + 1 / clip_metrics.recall)
+            harmonic_mean = 4 / (
+                        1 / clip_metrics.mota + 1 / clip_metrics.motp + 1 / clip_metrics.precision + 1 / clip_metrics.recall)
             metrics.append(harmonic_mean)
 
         return np.mean(metrics)
@@ -106,13 +103,15 @@ class HyperparameterTuner:
 
         params['training'].update({
             'epochs': 15,
-            'batch': 8
+            'batch': 16,
+            'patience': 3
         })
         try:
             trainer.train(
                 training_params=params['training'],
             )
 
+            ObjectDetector.write_tracking_params(params["detection"], self.output_dir)
             detector = ObjectDetector(
                 model_name=str(Path(self.output_dir) / 'finetune' / 'weights' / 'best.pt'),
                 tracking_params=params['detection']

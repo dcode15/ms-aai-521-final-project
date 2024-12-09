@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import motmetrics as mm
@@ -11,6 +11,8 @@ from tqdm import tqdm
 
 from BoundingBox import BoundingBox
 from VideoAnnotation import HockeyClip
+from Preprocessor import Preprocessor
+from ObjectDetector import ObjectDetector
 
 
 @dataclass
@@ -262,3 +264,35 @@ class ModelEvaluator:
             plt.close()
         else:
             plt.show()
+
+    @staticmethod
+    def process_clips_for_evaluation(
+            clips: List[HockeyClip],
+            preprocessor: Preprocessor,
+            detector: ObjectDetector,
+            batch_size: int
+    ) -> Dict[str, Tuple[List[np.ndarray], List, List]]:
+        results = {}
+
+        for clip in tqdm(clips, desc="Processing clips"):
+            frames = []
+            pred_detections = []
+            gt_detections = []
+
+            for frame_indices, batch_frames in preprocessor.process_clip_frames(clip, lambda x: x, batch_size):
+                frames.extend(batch_frames)
+                batch_detections = detector.detect_video(batch_frames, batch_size)
+                pred_detections.extend(batch_detections)
+
+                for frame_idx in frame_indices:
+                    frame_gt = []
+                    for track in clip.tracks.values():
+                        frame_gt.extend([
+                            box for box in track
+                            if box.frame_idx == frame_idx
+                        ])
+                    gt_detections.append(frame_gt)
+
+            results[clip.video_id] = (frames, pred_detections, gt_detections)
+
+        return results

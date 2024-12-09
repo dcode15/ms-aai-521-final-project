@@ -37,6 +37,7 @@ class ModelTrainer:
             exist_ok=True,
             plots=True,
             cache=True,
+            rect=True,
             tracker='bytetrack.yaml',
             **training_params
         )

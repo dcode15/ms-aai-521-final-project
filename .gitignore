@@ -9,3 +9,8 @@ out
 .tmp.drivedownload
 
 src/yolo11n.pt
+
+final-paper/*
+!final-paper/main.tex
+!final-paper/main.bib
+!final-paper/figures

@@ -58,7 +58,14 @@
         \item Classify each player as either a skater or goalie.
         \item Classify each player as belonging to either the home team or away team.
     \end{enumerate}
-    TODO: Discuss real-time, challenges, technical approach
+
+    Hockey presents a number of challenges for detection and tracking.
+    Players move quickly and occlusions are frequent and long-lasting.
+    Players also largely look similar due to matching uniforms, making it more difficult to track based on appearance.
+    Additionally, inference must be fast enough to process 30 or 60 frames per second in order for the model to work in a live broadcast setting.
+
+    To address these challenges, a model was developed using YOLO and ByteTrack to perform player detection, classification, and tracking.
+    TODO: Discuss outcome
     
 
     \customsection{Dataset}{dataset}
@@ -133,8 +140,6 @@
     During training, the nano, small, medium, and large versions of the Ultralytics YOLO v11 implementation were compared~\parencite{ultralytics_yolo}.
     The medium model offered the best balance of model complexity and performance, with the nano and small models underperforming on detection and classification for this task.
     The large model was significantly more resource-intensive to train and use than the medium model, and also was not able to achieve better predictions.
-
-    TODO: Discuss loss function
     To address the class imbalance, each class was weighted using its inverse frequency for the classification loss function.
 
     All models showed a strong tendency towards overfitting, with the training loss decreasing steadily and minimal improvement in validation loss even in very early epochs.
@@ -184,6 +189,16 @@
     \customsection{Conclusions}{conclusions}
 
     \customsubsection{Future Work}{future-work}
+
+    The most valuable way to improve the model's usefulness in a production setting would be to add player identification.
+    This would make the model much more valuable for both analytical and broadcast settings, as the tracking would be able to continue to follow a player even if they leave the frame and return or are occluded for long enough to lose their track.
+    However, player identification is a difficult problem in this setting due to everyone of each team wearing the same uniform, as well as helmets and padding that obscure the face and body.
+    One potential approach is to use jersey number recognition to identify players.
+    This approach has shown some success, with researchers using the CRAFT text detection method to achieve ~87\% accuracy in detecting jersey numbers~\parencite{player-tracking}.
+    Jersey number recognition does present its own issues, primarily in the fact that it requires the players' back to be visible, making it impossible to make an identification in some situations regardless of model quality.
+
+    Another valuable model enhancement would be to incorporate pose estimation.
+    Pose estimation using YOLO has been used in conjunction with social network analysis to examine passing patterns among players~\parencite{pose-centric-analysis}, and could potentially be used for automated collection of stats like shots and hits.
 
     \printbibliography
     \clearpage

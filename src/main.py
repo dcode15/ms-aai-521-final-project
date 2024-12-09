@@ -116,10 +116,7 @@ def main():
 
     logger.info("Loading fine-tuned model for detection")
 
-    detector = ObjectDetector(
-        model_name=str(Path(OUTPUT_DIR) / 'finetune' / 'weights' / 'best.pt'),
-        tracking_params=hyperparameters['detection']
-    )
+    detector = ObjectDetector(model_name=str(Path(OUTPUT_DIR) / 'finetune' / 'weights' / 'best.pt'))
 
     logger.info("Starting model evaluation")
     evaluator = ModelEvaluator()

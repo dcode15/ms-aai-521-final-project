@@ -112,10 +112,7 @@ class HyperparameterTuner:
             )
 
             ObjectDetector.write_tracking_params(params["detection"], self.output_dir)
-            detector = ObjectDetector(
-                model_name=str(Path(self.output_dir) / 'finetune' / 'weights' / 'best.pt'),
-                tracking_params=params['detection']
-            )
+            detector = ObjectDetector(model_name=str(Path(self.output_dir) / 'finetune' / 'weights' / 'best.pt'),)
 
             metric = self._evaluate_model(detector, self.val_clips)
 

@@ -13,9 +13,7 @@ class ObjectDetector:
     def __init__(
             self,
             model_name: str,
-            tracking_params: dict
     ):
-        self.tracking_params = tracking_params
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = YOLO(model_name)
         self.class_names = [
@@ -37,6 +35,7 @@ class ObjectDetector:
             batch_results = self.model.track(
                 source=batch_frames,
                 verbose=False,
+                persist=True,
                 tracker='D:\\Repos\\ms-aai-521-final-project\\out\\tracker-config.yaml'
             )
 

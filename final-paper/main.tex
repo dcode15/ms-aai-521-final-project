@@ -115,18 +115,69 @@
 
     \customsubsection{YOLO}{yolo}
 
-    You Only Look Once (YOLO) is an object-detection approach that performs detection in a single pass rather than using two stages, greatly improving inference speeds.
+    You Only Look Once (YOLO) is an object-detection technique that performs detection in a single pass rather than using two stages, greatly improving inference speeds.
     This is done by dividing the input image into a grid and predicting bounding boxes and classifications for items centered in each grid cell.
     These bounding boxes are then combined using intersection over union (IOU) thresholds and non-max suppression to get a final predicted bounding for an object ~\parencite{yolo}.
     YOLO was chosen for this application due to its ability to handle real-time inference while maintaining high bounding-box and classification accuracy.
-    
+
     \customsubsection{ByteTrack}{bytetrack}
 
+    ByteTrack is a multi-object tracking approach that differs from competing approaches in its use of low-confidence detections.
+    ByteTrack uses an initial pass to use high-confidence detections to establish motion information along with appearance similarity baselines.
+    It then incorporates low-confidence detections by using the established motion and appearance information to identify which low-confidence detections are likely to be valid~\parencite{bytetrack}.
+    Incorporating these detections instead of discarding them makes ByteTrack especially effective at handling occlusions, which is crucial due to the frequent occlusions in ice hockey recordings.
 
 
     \customsection{Training}{training}
 
-    \customsection{Postprocessing}{postprocessing}
+    During training, the nano, small, medium, and large versions of the Ultralytics YOLO v11 implementation were compared~\parencite{ultralytics_yolo}.
+    The medium model offered the best balance of model complexity and performance, with the nano and small models underperforming on detection and classification for this task.
+    The large model was significantly more resource-intensive to train and use than the medium model, and also was not able to achieve better predictions.
+
+    TODO: Discuss loss function
+    To address the class imbalance, each class was weighted using its inverse frequency for the classification loss function.
+
+    All models showed a strong tendency towards overfitting, with the training loss decreasing steadily and minimal improvement in validation loss even in very early epochs.
+    This was addressed by introducing weight decay and dropout, as well as a 3-epoch patience interval to stop training when the performance on the validation dataset stopped improving.
+    Decreasing the batch size was also found to be effective in decreasing the tendency to overfit, with a batch size of 8 being used in the final model.
+
+    \customsubsection{Detection Model Hyperparameter Tuning}{detection-hyperparameter-tuning}
+
+    Hyperparameter tuning for the YOLO detection model was performed using Optuna, which uses a Tree-Structured Parzen Estimator (TPE) tuner for Bayesian optimization of the hyperparameters~\parencite{optuna}.
+    Using Bayesian optimization was particularly valuable for this project due to the relatively long amount of time needed for each training run.
+    This allowed the tuner to converge on a high-performing set of hyperparameters much more quickly than would have been likely with a random or grid search.
+
+    The metric used for tuning was maximization of the F1 score.
+    This was chosen to balance precision (making sure detected players are actually players) and recall (making sure actual players are detected).
+    The full hyperparameter ranges used and final values can be found in Appendix B.
+    One notable result was the relatively high dropout value (0.7), validating the observation that overfitting was a significant issue.
+
+    \customsubsection{Inference and ByteTrack Hyperparameter Tuning}{inference-hyperparameter-tuning}
+
+    Key parameters for YOLO inference and ByteTrack were also tuned using Optuna.
+    This tuning was done as a separate process once the final hyperparameters for the detection model fine-tuning were found.
+    Running two separate hyperparameter tunings allowed the hyperparameter space to be greatly reduced for the time and resource-intensive process of fine-tuning.
+    The YOLO detection confidence threshold and ByteTrack parameters were then able to be rapidly tuned using the pretrained detection model.
+    The tuning metric for this secondary hyperparameter tuning was the harmonic mean of the precision, recall, multi-object tracking accuracy (MOTA), and multi-object tracking precision (MOTP).
+    The use of MOTA and MOTP is discussed further in the Evaluation section.
+    Using the harmonic mean of these metrics allowed the tuning process to target a balance of precision and recall across both detection and tracking.
+
+    The full hyperparameter ranges used and final values can be found in Appendix B.
+    However, there are two notable places where the tuned ByteTrack parameters deviate significantly from the defaults: the track buffer and confidence thresholds.
+    The default track buffer for determining when to remove a track is 30 frames, whereas the tuned value is 46 frames.
+    This is likely due to the physical nature of hockey resulting in long occlusions as players physically battle for the puck.
+    Having a higher track buffer would keep the track from being removed prematurely when players are tied up in physical engagements.
+    For confidence thresholds, the default low and high track thresholds are 0.1 and 0.25, respectively.
+    These are  much higher 0.46 and 0.87 in the tuned parameters.
+    This could be a reflection of the strong performance of the detector, resulting in generally higher confidence values.
+    Hockey has a number of features that could make detections more confident: players are constrained to a particular part of the image, wear generally consistent uniforms, and are almost always on a solid white background.
+    The naturally high resulting confidence in the detection predictions could necessitate higher confidence threshholds for effective tracking as well.
+
+
+    \customsection{Visualization}{visualization}
+    Predictions were then visualized on each frame using bounding boxes with classification labels and track IDs.
+    Each frame in a clip was then combined to create a final visualization video that had the predictions overlaid on top of the original clip.
+    The process also creates an alternate version of the video with the ground-truth annotations visualized as well for comparison of the model's output against the actual values.
 
     \customsection{Evaluation}{evaluation}
 

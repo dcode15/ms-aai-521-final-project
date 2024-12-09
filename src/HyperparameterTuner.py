@@ -86,7 +86,7 @@ class HyperparameterTuner:
         for clip, predictions in zip(clips, all_predictions):
             clip_metrics = self.evaluator.evaluate_clip(clip, predictions)
             harmonic_mean = 4 / (
-                        1 / clip_metrics.mota + 1 / clip_metrics.motp + 1 / clip_metrics.precision + 1 / clip_metrics.recall)
+                (1 / clip_metrics.mota) + (1 / (1 - clip_metrics.motp)) + (1 / clip_metrics.precision) + (1 / clip_metrics.recall))
             metrics.append(harmonic_mean)
 
         return np.mean(metrics)

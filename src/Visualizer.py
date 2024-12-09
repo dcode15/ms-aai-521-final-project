@@ -286,16 +286,11 @@ class Visualizer:
             box_type: Literal['pred', 'gt']
     ) -> str:
         """Create the label text for a box."""
-        label_parts = []
-        prefix = "GT" if box_type == 'gt' else "P"
+        label_type = "Actual" if box_type == 'gt' else "Pred"
+        position_label = "Skater" if box.player_type == 'player' else "Goalie"
+        team_label = "Home" if box.team == 'black' else "Away"
 
-        if box.track_id:
-            label_parts.append(f"{prefix}-{box.track_id}")
-
-        if box.team and box.player_type:
-            label_parts.append(f"{box.team}_{box.player_type}")
-
-        return " | ".join(label_parts) if label_parts else box.label
+        return f"{label_type} | {team_label} {position_label} - Track {box.track_id}"
 
     def _initialize_color_map(
             self,

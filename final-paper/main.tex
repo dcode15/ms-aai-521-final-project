@@ -13,7 +13,6 @@
 \addbibresource{main.bib}
 \linespread{2}
 
-
 \newcommand{\q}[1]{``#1''}
 \newcommand{\customsection}[2]{
   \phantomsection
@@ -49,23 +48,23 @@
     \customsection{Introduction}{introduction}
 
     The ability to track ice hockey players using computer vision presents a number of opportunities.
-    Data about player positions and movements can be used for advanced statistical analysis, and team-level positioning and movement can be used to analyze the strategies employed by different teams.
+    Data about player positions and movements can be used for advanced statistical analysis, and team-level positioning and movements can be used to examine the strategies employed by different teams.
     For live broadcasting, player tracking allows more engaging visualizations by allowing players to be highlighted in real time for commentator discussion or graphical overlays.
-    This project aimed to build a model that could take a single game video feed as input and perform four primary tasks:
+    This project aimed to build a model that could take a single game video feed as input and perform five primary tasks:
     \begin{enumerate}
         \item Use object detection to locate the position of all active players in frame.
         \item Track players across frames to maintain consistent identification.
         \item Classify each player as either a skater or goalie.
         \item Classify each player as belonging to either the home team or away team.
+        \item Be performant enough to be usable in real-time applications.
     \end{enumerate}
 
-    Hockey presents a number of challenges for detection and tracking.
-    Players move quickly and occlusions are frequent and long-lasting.
+    Hockey presents a number of challenges for detection and tracking; players move quickly and occlusions are frequent and long-lasting.
     Players also largely look similar due to matching uniforms, making it more difficult to track based on appearance.
-    Additionally, inference must be fast enough to process 30 or 60 frames per second in order for the model to work in a live broadcast setting.
+    For real-time usage, inference must also be fast enough to process 30 or 60 frames per second in order for the model to work in a live broadcast setting.
 
     To address these challenges, a model was developed using YOLO and ByteTrack to perform player detection, classification, and tracking.
-    TODO: Discuss outcome
+    The resulting model shows strong performance across both all three areas, providing a capable baseline for future enhancements and visualizations.
     
 
     \customsection{Dataset}{dataset}
@@ -75,10 +74,10 @@
     Each clip captures a continuous sequence of gameplay with no cuts or stoppages in play.
     In all, this represents 82,305 frames with 632,785 instances of a player in the frame~\parencite{mhptd}.
 
-    All clips are annotated using the Computer Vision Annotation Tool (CVAT) in XML format, with tracks for each unique player provided detailing their location in each frame.
+    All clips are annotated using the Computer Vision Annotation Tool (CVAT) in XML format, with tracks for each unique player detailing their location in each frame.
     The annotations also include a player ID, whether they are on the home or away team, and whether they are a skater or goalie.
     The position classes (skater, goalie) are significantly imbalanced due to there typically being five skaters and one goalie on the ice at a given time for each team.
-    This results in ~8.4\% of the player instances being goalies while the rest are skaters.
+    This results in \~8.4\% of the player instances being goalies while the rest are skaters.
     Occlusions are tracked in the annotations as well, with 13.5\% of player instances being occluded in some way.
 
     \customsection{Preprocessing}{preprocessing}
@@ -130,9 +129,9 @@
     \customsubsection{ByteTrack}{bytetrack}
 
     ByteTrack is a multi-object tracking approach that differs from competing approaches in its use of low-confidence detections.
-    ByteTrack uses an initial pass to use high-confidence detections to establish motion information along with appearance similarity baselines.
+    ByteTrack takes an initial pass to use high-confidence detections to establish motion information along with appearance similarity baselines.
     It then incorporates low-confidence detections by using the established motion and appearance information to identify which low-confidence detections are likely to be valid~\parencite{bytetrack}.
-    Incorporating these detections instead of discarding them makes ByteTrack especially effective at handling occlusions, which is crucial due to the frequent occlusions in ice hockey recordings.
+    Incorporating these detections instead of discarding them makes ByteTrack especially effective at handling occlusions compared to other techniques, which is crucial due to the frequent occlusions in ice hockey recordings.
 
 
     \customsection{Training}{training}
@@ -142,7 +141,7 @@
     The large model was significantly more resource-intensive to train and use than the medium model, and also was not able to achieve better predictions.
     To address the class imbalance, each class was weighted using its inverse frequency for the classification loss function.
 
-    All models showed a strong tendency towards overfitting, with the training loss decreasing steadily and minimal improvement in validation loss even in very early epochs.
+    The trained models showed a strong tendency towards overfitting, with the training loss decreasing steadily while there was minimal improvement in validation loss even in very early epochs.
     This was addressed by introducing weight decay and dropout, as well as a 3-epoch patience interval to stop training when the performance on the validation dataset stopped improving.
     Decreasing the batch size was also found to be effective in decreasing the tendency to overfit, with a batch size of 8 being used in the final model.
 
@@ -153,7 +152,7 @@
         \label{fig:learning-curves}
     \end{figure}
 
-    The learning curves, shown in Figure~\ref{fig:learning-curves} for the final model show much less indication of overfitting, with similar improvements in both the training and validation datasets across the entire training period.
+    The learning curves, shown in Figure~\ref{fig:learning-curves}, for the final model show much less indication of overfitting, with similar improvements in both the training and validation datasets across the entire training period.
     Improvement across all metrics largely plateaus around epoch 20, and training was stopped by the early stopping mechanism at epoch 25.
 
     \customsubsection{Detection Model Hyperparameter Tuning}{detection-hyperparameter-tuning}
@@ -173,7 +172,8 @@
     This tuning was done as a separate process once the final hyperparameters for the detection model fine-tuning were found.
     Running two separate hyperparameter tunings allowed the hyperparameter space to be greatly reduced for the time and resource-intensive process of fine-tuning.
     The YOLO detection confidence threshold and ByteTrack parameters were then able to be rapidly tuned using the pretrained detection model.
-    The tuning metric for this secondary hyperparameter tuning was the harmonic mean of the precision, recall, multi-object tracking accuracy (MOTA), and multi-object tracking precision (MOTP).
+    The tuning metric for this secondary hyperparameter tuning was the harmonic mean of the precision, recall, multi-object tracking accuracy (MOTA), and multi-object tracking precision (MOTP):
+    \[H = \frac{4}{\frac{1}{P} + \frac{1}{R} + \frac{1}{MOTA} + \frac{1}{MOTP}}\]
     The use of MOTA and MOTP is discussed further in the Evaluation section.
     Using the harmonic mean of these metrics allowed the tuning process to target a balance of precision and recall across both detection and tracking.
 
@@ -192,23 +192,61 @@
     \customsection{Visualization}{visualization}
     Predictions were then visualized on each frame using bounding boxes with classification labels and track IDs.
     Each frame in a clip was then combined to create a final visualization video that had the predictions overlaid on top of the original clip.
-    The process also creates an alternate version of the video with the ground-truth annotations visualized as well for comparison of the model's output against the actual values.
+    Figure~\ref{fig:visualization} shows a frame from one of the generated visualization clips, with each player annotated with a bounding box, their classification, and their track ID.
+    The link to a full clip visualization is provided in Appendix A.
+
+    \begin{figure}[tb]
+        \centering
+        \includegraphics[width=1\textwidth]{figures/visualization}
+        \caption{Example frame from visualized output clip.}
+        \label{fig:visualization}
+    \end{figure}
 
     \customsection{Evaluation}{evaluation}
 
+    Six primary metrics were used to evaluate the model on the test dataset, as shown in Table~\ref{tab:evaluation-metrics}.
+
+    \begin{table}[tb]
+        \centering
+        \renewcommand{\arraystretch}{1}
+        \begin{tabular}{|p{5cm}|p{8cm}|p{2cm}|}
+            \hline
+            \textbf{Metric} & \textbf{Description} & \textbf{Value} \\ \hline
+            Precision & The proportion of detected players that matched with actual players rather than being false detections. & 0.985 \\ \hline
+            Recall & The proportion of actual players in the clip that were detected by the model. & 0.939 \\ \hline
+            Multi-Object Tracking Accuracy (MOTA) & The overall tracking accuracy, accounting for missed detections, false detections, and identity switches. Ranges from -inf to 1. & 0.923 \\ \hline
+            Multi-Object Tracking Precision (MOTP) & The average overlap between the predicted bounding boxes and their matching ground truth boxes. Ranges from 0 to 1. & 0.823 \\ \hline
+            Track Switches & The number of times the tracker incorrectly transferred the track from one player to another. & 214 \\ \hline
+            Fragmentations & The number of times a player track was incorrectly split into multiple tracks by the tracker. & 500 \\ \hline
+        \end{tabular}
+        \\[10pt]
+        \caption{Detection and tracking evaluation metrics.}
+        \label{tab:evaluation-metrics}
+    \end{table}
+
+    Overall, the model shows very strong performance in precision (0.985), recall (0.939), and MOTA (0.923), being able to correctly identify and objects and tracks quite consistently.
+    The MOTP is not as high at 0.823, but still indicates a large amount of overlap with the ground truth bounding boxes.
+    Examining the visualizations, the accuracy of the bounding boxes appears to be close enough that the practical implications would be minimal.
+
+    The test dataset contains 430 tracks, meaning that the average track experiences \~1.16 fragmentations and \~0.5 track switches over the course of each clip.
+    Given the frequency of players crossing paths, the relatively low number of track switches shows that the model does a fairly good job in maintaining tracks for nearby players.
+    The relatively high number of fragmentations is likely due to the annotations preserving tracks for players when they're out-of-frame, whereas this model doesn't have any mechanism for identifying players themselves to preserve their tracks once the player is no longer visible.
+
+    In terms of real-time processing for broadcast, the model was benchmarked against the test dataset and was able to process 68 frames-per-second on a mid-range consumer GPU (Nvidia RTX 3060ti).
+    This suggests that the 30-60 fps needed to maintain real-time processing during a live broadcast would be easily achievable with GPU hardware appropriate for a production setting.
+
+
     \customsection{Conclusions}{conclusions}
 
-    \customsubsection{Future Work}{future-work}
+    Using YOLO and ByteTrack, a highly effective model for ice hockey player tracking and classification was able to be created.
+    The minimal computational resource requirements for the model make it viable in both analytical and real-time scenarios.
 
     The most valuable way to improve the model's usefulness in a production setting would be to add player identification.
     This would make the model much more valuable for both analytical and broadcast settings, as the tracking would be able to continue to follow a player even if they leave the frame and return or are occluded for long enough to lose their track.
     However, player identification is a difficult problem in this setting due to everyone of each team wearing the same uniform, as well as helmets and padding that obscure the face and body.
     One potential approach is to use jersey number recognition to identify players.
-    This approach has shown some success, with researchers using the CRAFT text detection method to achieve ~87\% accuracy in detecting jersey numbers~\parencite{player-tracking}.
+    This approach has shown some success, with researchers using the CRAFT text detection method to achieve \~87\% accuracy in detecting jersey numbers~\parencite{player-tracking}.
     Jersey number recognition does present its own issues, primarily in the fact that it requires the players' back to be visible, making it impossible to make an identification in some situations regardless of model quality.
-
-    Another valuable model enhancement would be to incorporate pose estimation.
-    Pose estimation using YOLO has been used in conjunction with social network analysis to examine passing patterns among players~\parencite{pose-centric-analysis}, and could potentially be used for automated collection of stats like shots and hits.
 
     \printbibliography
     \clearpage
@@ -216,7 +254,7 @@
     \begin{appendices}
         \section{Appendix A: Project Links}\label{sec:project-links}
         \noindent Github repository: https://dcode15.github.io/ms-aai-520-final-project/
-        \noindent Example visualization: TODO: add youtube link
+        \noindent Example visualization: https://www.youtube.com/watch?v=Enrnuo74tcs
 
         \section{Appendix B: Hyperparameter Configuration}\label{sec:hyperparameters}
 

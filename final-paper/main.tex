@@ -146,6 +146,16 @@
     This was addressed by introducing weight decay and dropout, as well as a 3-epoch patience interval to stop training when the performance on the validation dataset stopped improving.
     Decreasing the batch size was also found to be effective in decreasing the tendency to overfit, with a batch size of 8 being used in the final model.
 
+    \begin{figure}[tb]
+        \centering
+        \includegraphics[width=1\textwidth]{figures/training_metrics}
+        \caption{Detection model learning curves.}
+        \label{fig:learning-curves}
+    \end{figure}
+
+    The learning curves, shown in Figure~\ref{fig:learning-curves} for the final model show much less indication of overfitting, with similar improvements in both the training and validation datasets across the entire training period.
+    Improvement across all metrics largely plateaus around epoch 20, and training was stopped by the early stopping mechanism at epoch 25.
+
     \customsubsection{Detection Model Hyperparameter Tuning}{detection-hyperparameter-tuning}
 
     Hyperparameter tuning for the YOLO detection model was performed using Optuna, which uses a Tree-Structured Parzen Estimator (TPE) tuner for Bayesian optimization of the hyperparameters~\parencite{optuna}.
@@ -205,10 +215,32 @@
 
     \begin{appendices}
         \section{Appendix A: Project Links}\label{sec:project-links}
+        \noindent Github repository: https://dcode15.github.io/ms-aai-520-final-project/
+        \noindent Example visualization: TODO: add youtube link
 
         \section{Appendix B: Hyperparameter Configuration}\label{sec:hyperparameters}
 
-        \section{Appendix C: Visualizations}\label{sec:visualizations}
+        \begin{table}[tb]
+        \centering
+        \renewcommand{\arraystretch}{0.8}
+        \begin{tabular}{|l|l|l|}
+            \hline
+                \textbf{Hyperparameter} & \textbf{Tuning Range} & \textbf{Final Value} \\ \hline
+                Learning Rate & [0.00001, 0.01] & 0.00975 \\ \hline
+                Weight Decay & [0.00001, 0.001] & 0.00024 \\ \hline
+                Dropout & [0, 0.75] & 0.7 \\ \hline
+                Detection Confidence Threshold & [0.1, 0.9] & \\ \hline
+                IOU Threshold & [0.1, 0.9] & \\ \hline
+                ByteTrack Track Buffer & [1, 120] & \\ \hline
+                ByteTrack Match Threshold & [0.1, 0.9] & \\ \hline
+                ByteTrack Track Low Threshold & [0.01, 0.5] & \\ \hline
+                ByteTrack Track High Threshold & Low Threshold + [0.01, 0.5] & \\ \hline
+                ByteTrack New Track Threshold & [0.1, 0.9] & \\ \hline
+            \end{tabular}
+            \\[10pt]
+            \caption{Hyperparameter tuning ranges and final values.}
+            \label{tab:hyperparameters}
+        \end{table}
 
     \end{appendices}
 

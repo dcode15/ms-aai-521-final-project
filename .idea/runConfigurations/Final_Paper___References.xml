@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Final Paper - References" type="BIBTEX_RUN_CONFIGURATION" factoryName="LaTeX configuration factory">
+    <texify-bibtex>
+      <compiler>BIBER</compiler>
+      <compiler-path />
+      <compiler-arguments />
+      <envs>
+        <env name="BIBINPUTS" value="D:\Repos\ms-aai-521-final-project\final-paper\" />
+        <env name="BSTINPUTS" value="D:\Repos\ms-aai-521-final-project\final-paper\auxil\" />
+      </envs>
+      <main-file>$PROJECT_DIR$/final-paper/main.tex</main-file>
+      <aux-dir>$APPLICATION_HOME_DIR$/jbr/bin</aux-dir>
+    </texify-bibtex>
+    <method v="2" />
+  </configuration>
+</component>

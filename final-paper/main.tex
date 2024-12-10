@@ -8,6 +8,7 @@
 \usepackage[options]{nohyperref}
 \usepackage{url}
 \usepackage{appendix}
+\usepackage{textcomp}
 
 \DeclareLanguageMapping{american}{american-apa}
 \addbibresource{main.bib}
@@ -77,7 +78,7 @@
     All clips are annotated using the Computer Vision Annotation Tool (CVAT) in XML format, with tracks for each unique player detailing their location in each frame.
     The annotations also include a player ID, whether they are on the home or away team, and whether they are a skater or goalie.
     The position classes (skater, goalie) are significantly imbalanced due to there typically being five skaters and one goalie on the ice at a given time for each team.
-    This results in \~8.4\% of the player instances being goalies while the rest are skaters.
+    This results in \textasciitilde8.4\% of the player instances being goalies while the rest are skaters.
     Occlusions are tracked in the annotations as well, with 13.5\% of player instances being occluded in some way.
 
     \customsection{Preprocessing}{preprocessing}
@@ -178,15 +179,9 @@
     Using the harmonic mean of these metrics allowed the tuning process to target a balance of precision and recall across both detection and tracking.
 
     The full hyperparameter ranges used and final values can be found in Appendix B.
-    However, there are two notable places where the tuned ByteTrack parameters deviate significantly from the defaults: the track buffer and confidence thresholds.
-    The default track buffer for determining when to remove a track is 30 frames, whereas the tuned value is 46 frames.
-    This is likely due to the physical nature of hockey resulting in long occlusions as players physically battle for the puck.
-    Having a higher track buffer would keep the track from being removed prematurely when players are tied up in physical engagements.
-    For confidence thresholds, the default low and high track thresholds are 0.1 and 0.25, respectively.
-    These are  much higher 0.46 and 0.87 in the tuned parameters.
-    This could be a reflection of the strong performance of the detector, resulting in generally higher confidence values.
-    Hockey has a number of features that could make detections more confident: players are constrained to a particular part of the image, wear generally consistent uniforms, and are almost always on a solid white background.
-    The naturally high resulting confidence in the detection predictions could necessitate higher confidence threshholds for effective tracking as well.
+    However, one notable result is the extremely low value for the `track\_low\_threshold` parameter, which is used to determine which detections to attempt to associate with the track after the initial high-confidence pass is completed.
+    The very low value here helped improve track preservation by allowing very-low confidence detections caused by occlusions to be considered for inclusion in the track.
+    Since hockey involves frequent physical contact, players passing behind each other, and players passing behind the boards and stanchions, this ended up being an effective way to handle these scenarios.
 
 
     \customsection{Visualization}{visualization}
@@ -206,7 +201,7 @@
 
     Six primary metrics were used to evaluate the model on the test dataset, as shown in Table~\ref{tab:evaluation-metrics}.
 
-    \begin{table}[tb]
+    \begin{table}[htb]
         \centering
         \renewcommand{\arraystretch}{1}
         \begin{tabular}{|p{5cm}|p{8cm}|p{2cm}|}
@@ -228,7 +223,7 @@
     The MOTP is not as high at 0.823, but still indicates a large amount of overlap with the ground truth bounding boxes.
     Examining the visualizations, the accuracy of the bounding boxes appears to be close enough that the practical implications would be minimal.
 
-    The test dataset contains 430 tracks, meaning that the average track experiences \~1.16 fragmentations and \~0.5 track switches over the course of each clip.
+    The test dataset contains 430 tracks, meaning that the average track experiences \textasciitilde1.16 fragmentations and \textasciitilde0.5 track switches over the course of each clip.
     Given the frequency of players crossing paths, the relatively low number of track switches shows that the model does a fairly good job in maintaining tracks for nearby players.
     The relatively high number of fragmentations is likely due to the annotations preserving tracks for players when they're out-of-frame, whereas this model doesn't have any mechanism for identifying players themselves to preserve their tracks once the player is no longer visible.
 
@@ -245,7 +240,7 @@
     This would make the model much more valuable for both analytical and broadcast settings, as the tracking would be able to continue to follow a player even if they leave the frame and return or are occluded for long enough to lose their track.
     However, player identification is a difficult problem in this setting due to everyone of each team wearing the same uniform, as well as helmets and padding that obscure the face and body.
     One potential approach is to use jersey number recognition to identify players.
-    This approach has shown some success, with researchers using the CRAFT text detection method to achieve \~87\% accuracy in detecting jersey numbers~\parencite{player-tracking}.
+    This approach has shown some success, with researchers using the CRAFT text detection method to achieve \textasciitilde87\% accuracy in detecting jersey numbers~\parencite{player-tracking}.
     Jersey number recognition does present its own issues, primarily in the fact that it requires the players' back to be visible, making it impossible to make an identification in some situations regardless of model quality.
 
     \printbibliography
@@ -253,12 +248,12 @@
 
     \begin{appendices}
         \section{Appendix A: Project Links}\label{sec:project-links}
-        \noindent Github repository: https://dcode15.github.io/ms-aai-520-final-project/
-        \noindent Example visualization: https://www.youtube.com/watch?v=Enrnuo74tcs
+        \noindent \textbf{Github Repository}: https://github.com/dcode15/ms-aai-521-final-project \newline
+        \noindent \textbf{Example Visualization}: https://www.youtube.com/watch?v=Enrnuo74tcs
 
         \section{Appendix B: Hyperparameter Configuration}\label{sec:hyperparameters}
 
-        \begin{table}[tb]
+        \begin{table}[h]
         \centering
         \renewcommand{\arraystretch}{0.8}
         \begin{tabular}{|l|l|l|}
@@ -267,13 +262,13 @@
                 Learning Rate & [0.00001, 0.01] & 0.00975 \\ \hline
                 Weight Decay & [0.00001, 0.001] & 0.00024 \\ \hline
                 Dropout & [0, 0.75] & 0.7 \\ \hline
-                Detection Confidence Threshold & [0.1, 0.9] & \\ \hline
-                IOU Threshold & [0.1, 0.9] & \\ \hline
-                ByteTrack Track Buffer & [1, 120] & \\ \hline
-                ByteTrack Match Threshold & [0.1, 0.9] & \\ \hline
-                ByteTrack Track Low Threshold & [0.01, 0.5] & \\ \hline
-                ByteTrack Track High Threshold & Low Threshold + [0.01, 0.5] & \\ \hline
-                ByteTrack New Track Threshold & [0.1, 0.9] & \\ \hline
+                Detection Confidence Threshold & [0.1, 0.9] & 0.72 \\ \hline
+                IOU Threshold & [0.1, 0.9] & 0.89 \\ \hline
+                ByteTrack Track Buffer & [1, 120] & 35 \\ \hline
+                ByteTrack Match Threshold & [0.1, 0.9] & 0.8 \\ \hline
+                ByteTrack Track Low Threshold & [0.01, 0.5] & 0.023 \\ \hline
+                ByteTrack Track High Threshold & Low Threshold + [0.01, 0.5] & 0.356 \\ \hline
+                ByteTrack New Track Threshold & [0.1, 0.9] & 0.025 \\ \hline
             \end{tabular}
             \\[10pt]
             \caption{Hyperparameter tuning ranges and final values.}

@@ -7,12 +7,27 @@ from VideoAnnotation import HockeyClip
 
 
 class AnnotationParser:
+    """Parser for CVAT XML annotation files containing hockey player tracking data."""
 
     def __init__(self):
+        """Initialize the parser with a logger."""
         self.logger = logging.getLogger(__name__)
 
     @staticmethod
     def parse_cvat_xml(xml_path: str) -> HockeyClip:
+        """
+        Parse a CVAT XML annotation file and convert it to a HockeyClip object.
+
+        Extracts video metadata, player tracks, and bounding box information from the XML.
+        Each track contains frame-by-frame bounding boxes for a specific player or keeper,
+        including their team and position.
+
+        Args:
+            xml_path: Path to the CVAT XML annotation file
+
+        Returns:
+            HockeyClip object containing the parsed video and annotation data
+        """
         tree = ET.parse(xml_path)
         root = tree.getroot()
 

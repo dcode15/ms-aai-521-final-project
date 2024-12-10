@@ -15,13 +15,12 @@ from VideoAnnotation import HockeyClip
 
 @dataclass
 class TuningConfig:
-    """Configuration for hyperparameter tuning."""
     n_trials: int = 100
     study_name: str = "hockey_tracking_optimization"
 
 
 class HyperparameterTuner:
-    """Class for tuning hyperparameters using Optuna."""
+    """Performs automated tuning of model hyperparameters using the Optuna optimization framework."""
 
     def __init__(
             self,
@@ -33,7 +32,18 @@ class HyperparameterTuner:
             config: TuningConfig,
             device: Optional[str] = None
     ):
-        """Initialize the tuner with dataset and configuration."""
+        """
+        Initialize the hyperparameter tuner with model, data, and configuration settings.
+
+        Args:
+            base_model_path: Path to the base model to be tuned
+            output_dir: Directory for saving tuning results
+            train_clips: List of training video clips
+            val_clips: List of validation video clips
+            preprocessor: Data preprocessor instance
+            config: Tuning configuration settings
+            device: Optional device specification (GPU/CPU)
+        """
         self.base_model_path = base_model_path
         self.output_dir = Path(output_dir)
         self.train_clips = train_clips
@@ -45,7 +55,16 @@ class HyperparameterTuner:
         self.evaluator = ModelEvaluator()
 
     def _suggest_hyperparameters(self, trial: Trial) -> Dict[str, Any]:
-        """Suggest hyperparameters for a trial."""
+        """
+        Generate hyperparameter suggestions for a single optimization trial.
+        Includes parameters for both training and detection/tracking.
+
+        Args:
+            trial: Current Optuna trial instance
+
+        Returns:
+            Dictionary of suggested hyperparameter values
+        """
         track_range = trial.suggest_float('track_range', 0.01, 0.5)
         params = {
             'training': {
@@ -72,7 +91,17 @@ class HyperparameterTuner:
             clips: list[HockeyClip],
             batch_size: int = 16
     ) -> float:
-        """Evaluate model performance on a set of clips."""
+        """
+        Evaluate model performance on a set of clips using a harmonic mean of tracking metrics.
+
+        Args:
+            model: Object detection model to evaluate
+            clips: List of video clips for evaluation
+            batch_size: Batch size for processing frames
+
+        Returns:
+            Harmonic mean of MOTA, MOTP, precision, and recall across all clips
+        """
         all_predictions = []
 
         for clip in clips:
@@ -86,13 +115,23 @@ class HyperparameterTuner:
         for clip, predictions in zip(clips, all_predictions):
             clip_metrics = self.evaluator.evaluate_clip(clip, predictions)
             harmonic_mean = 4 / (
-                (1 / clip_metrics.mota) + (1 / (1 - clip_metrics.motp)) + (1 / clip_metrics.precision) + (1 / clip_metrics.recall))
+                    (1 / clip_metrics.mota) + (1 / (1 - clip_metrics.motp)) + (1 / clip_metrics.precision) + (
+                    1 / clip_metrics.recall))
             metrics.append(harmonic_mean)
 
         return np.mean(metrics)
 
     def _objective(self, trial: Trial) -> float:
-        """Objective function for Optuna optimization."""
+        """
+        Objective function for hyperparameter optimization.
+        Trains model with suggested parameters and evaluates performance.
+
+        Args:
+            trial: Current Optuna trial instance
+
+        Returns:
+            Evaluation metric value
+        """
         params = self._suggest_hyperparameters(trial)
 
         trainer = ModelTrainer(
@@ -112,7 +151,7 @@ class HyperparameterTuner:
             )
 
             ObjectDetector.write_tracking_params(params["detection"], self.output_dir)
-            detector = ObjectDetector(model_name=str(Path(self.output_dir) / 'finetune' / 'weights' / 'best.pt'),)
+            detector = ObjectDetector(model_name=str(Path(self.output_dir) / 'finetune' / 'weights' / 'best.pt'), )
 
             metric = self._evaluate_model(detector, self.val_clips)
 
@@ -123,7 +162,13 @@ class HyperparameterTuner:
             return float('-inf')
 
     def tune(self) -> Dict[str, Any]:
-        """Run hyperparameter tuning and return best parameters."""
+        """
+        Executes hyperparameter optimization process.
+        Creates and runs an Optuna study to find optimal parameters.
+
+        Returns:
+            Dictionary containing the best hyperparameters found
+        """
         study = optuna.create_study(
             study_name=self.config.study_name,
             direction="maximize",

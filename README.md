@@ -7,7 +7,14 @@ Source code can be found in the `src` directory, and the LaTeX code for the fina
 
 Key source files:
 * **config.py**: holds configuration settings for the entire project, including file paths and training hyperparameters.
-* **main.py**: the point of entry script for training the model, performing inference, and 
+* **main.py**: the point of entry script for training the model, performing inference, and doing evaluation/visualizations for the trained model
+* **AnnotationParser.py**: a class that parses the CVAT annotation data into a format that is ready for consumption by the rest of the pipeline
+* **Preprocessor.py**: a class that performs preprocessing tasks including calling the AnnotationParser, preparing data for consumption by the YOLO implemenation, and dataset splitting
+* **ModelTrainer.py**: a class for handling training of the YOLO model 
+* **ObjectDetector.py**: a class that uses YOLO and ByteTrack to perform object detection and tracking on provided video  
+* **HyperparameterTuner.py**: a class that manages hyperparameter tuning with Optuna for both training and inference hyperparameters
+* **ModelEvaluator.py**: a class that performs inference on and calculates key evaluation metrics for a provided clip
+* **Visualizer.py**: a class for creating customized video visualizations of the model's predictions 
 
 ## Running Locally
 

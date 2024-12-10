@@ -10,10 +10,18 @@ from BoundingBox import BoundingBox
 
 
 class ObjectDetector:
+    """Handles player detection and tracking using YOLO model in hockey videos."""
+
     def __init__(
             self,
             model_name: str,
     ):
+        """
+        Initializes the detector with a YOLO model.
+
+        Args:
+            model_name: Path to the YOLO model file
+        """
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = YOLO(model_name)
         self.class_names = [
@@ -28,6 +36,16 @@ class ObjectDetector:
             frames: List[np.ndarray],
             batch_size: int,
     ) -> List[List[BoundingBox]]:
+        """
+        Runs detection and tracking on video frames.
+
+        Args:
+            frames: List of video frames as numpy arrays
+            batch_size: Number of frames to process at once
+
+        Returns:
+            List of detected bounding boxes for each frame, including tracking IDs
+        """
         all_detections = []
 
         for i in range(0, len(frames), batch_size):
@@ -36,7 +54,7 @@ class ObjectDetector:
                 source=batch_frames,
                 verbose=False,
                 persist=True,
-                tracker='D:\\Repos\\ms-aai-521-final-project\\out\\tracker-config.yaml'
+                tracker='..\\out\\tracker-config.yaml'
             )
 
             for frame_offset, results in enumerate(batch_results):
@@ -67,6 +85,14 @@ class ObjectDetector:
 
     @staticmethod
     def write_tracking_params(params: Dict[str, Any], output_dir: Union[str, Path]) -> None:
+        """
+        Saves tracking parameters to a YAML configuration file.
+        Creates ByteTrack configuration with specified tracking thresholds and parameters.
+
+        Args:
+            params: Dictionary of tracking parameters
+            output_dir: Directory to save the configuration file
+        """
         output_dir = Path(output_dir)
         tracking_config = {
             "tracker_type": "bytetrack",

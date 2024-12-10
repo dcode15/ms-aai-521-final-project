@@ -27,8 +27,15 @@ class TrackingMetrics:
 
 
 class ModelEvaluator:
+    """Evaluates object detection and tracking model performance using MOT metrics."""
 
     def __init__(self, iou_threshold: float = 0.5):
+        """
+        Initializes evaluator with IOU threshold for detection matching.
+
+        Args:
+            iou_threshold: Minimum IOU for considering detections as matches
+        """
         self.logger = logging.getLogger(__name__)
         self.iou_threshold = iou_threshold
 
@@ -38,6 +45,18 @@ class ModelEvaluator:
             frame_width: int,
             frame_height: int
     ) -> np.ndarray:
+        """
+        Converts bounding boxes to MOT Challenge format (x, y, width, height).
+        Ensures coordinates are within frame boundaries.
+
+        Args:
+            boxes: List of bounding boxes to convert
+            frame_width: Width of the video frame
+            frame_height: Height of the video frame
+
+        Returns:
+            Array of boxes in MOT format
+        """
         mot_boxes = []
         for box in boxes:
             x1 = max(0, min(box.xtl, frame_width - 1))
@@ -58,6 +77,17 @@ class ModelEvaluator:
             frame_idx: int,
             include_keepers: bool = True
     ) -> List[BoundingBox]:
+        """
+        Extracts all detections for a specific frame from a clip.
+
+        Args:
+            clip: Video clip containing tracking data
+            frame_idx: Index of frame to get detections for
+            include_keepers: Whether to include goalkeeper detections
+
+        Returns:
+            List of bounding boxes for the specified frame
+        """
         frame_boxes = []
         valid_labels = {'player'} | ({'keeper'} if include_keepers else set())
 
@@ -74,6 +104,18 @@ class ModelEvaluator:
             pred_detections: List[List[BoundingBox]],
             include_keepers: bool = True
     ) -> TrackingMetrics:
+        """
+        Evaluates tracking performance on a single video clip.
+        Computes MOTA, MOTP and other MOT metrics by comparing predictions to ground truth.
+
+        Args:
+            clip: Video clip with ground truth annotations
+            pred_detections: Predicted detections for each frame
+            include_keepers: Whether to include goalkeeper detections in evaluation
+
+        Returns:
+            Tracking metrics for the clip
+        """
         acc = mm.MOTAccumulator(auto_id=True)
 
         num_frames = len(pred_detections)
@@ -143,6 +185,19 @@ class ModelEvaluator:
             output_dir: Optional[Path] = None,
             include_keepers: bool = True
     ) -> Dict[str, TrackingMetrics]:
+        """
+        Evaluates tracking performance across multiple clips.
+        Optionally saves per-clip and aggregate results to disk.
+
+        Args:
+            clips: List of video clips with ground truth
+            all_pred_detections: Predicted detections for each frame of each clip
+            output_dir: Optional directory to save evaluation results
+            include_keepers: Whether to include goalkeeper detections
+
+        Returns:
+            Dictionary mapping clip IDs to their tracking metrics
+        """
         results = {}
 
         for clip, pred_detections in zip(clips, all_pred_detections):
@@ -173,6 +228,14 @@ class ModelEvaluator:
             metrics: TrackingMetrics,
             output_dir: Path
     ) -> None:
+        """
+        Saves evaluation metrics for a single clip to CSV.
+
+        Args:
+            clip_id: Identifier for the clip
+            metrics: Tracking metrics to save
+            output_dir: Directory to save results in
+        """
         results_dir = output_dir / 'tracking_metrics'
         results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -194,6 +257,14 @@ class ModelEvaluator:
             results: Dict[str, TrackingMetrics],
             output_dir: Path
     ) -> None:
+        """
+        Saves aggregate evaluation metrics for entire dataset to CSV.
+        Computes weighted averages based on number of frames per clip.
+
+        Args:
+            results: Dictionary mapping clip IDs to metrics
+            output_dir: Directory to save results in
+        """
         results_dir = output_dir / 'tracking_metrics'
         results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -218,7 +289,7 @@ class ModelEvaluator:
 
         Args:
             results_path: Path to the results.csv file
-            output_dir: Optional directory to save the plot. If None, display instead.
+            output_dir: Optional directory to save the plot. If None, displays the plot instead.
         """
         df = pd.read_csv(results_path)
 
@@ -272,6 +343,18 @@ class ModelEvaluator:
             detector: ObjectDetector,
             batch_size: int
     ) -> Dict[str, Tuple[List[np.ndarray], List, List]]:
+        """
+        Process video clips through detector to get predictions for evaluation.
+
+        Args:
+            clips: List of video clips to process
+            preprocessor: Data preprocessor instance
+            detector: Object detection model
+            batch_size: Batch size for processing frames
+
+        Returns:
+            Dictionary mapping clip IDs to tuples of (frames, predictions, ground truth)
+        """
         results = {}
 
         for clip in tqdm(clips, desc="Processing clips"):
